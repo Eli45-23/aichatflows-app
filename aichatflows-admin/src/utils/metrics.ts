@@ -1,11 +1,57 @@
 import { Client, Payment, Goal, BusinessVisit } from '../types';
 
+// Safe date parsing utility to prevent crashes
+const safeParseDate = (dateValue: any): Date | null => {
+  if (!dateValue) {
+    return null;
+  }
+  
+  // If it's already a Date object, validate it
+  if (dateValue instanceof Date) {
+    return isNaN(dateValue.getTime()) ? null : dateValue;
+  }
+  
+  // If it's a string or number, try to parse it
+  try {
+    const parsed = new Date(dateValue);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch (error) {
+    console.warn(`⚠️ Failed to parse date: ${dateValue}`, error);
+    return null;
+  }
+};
+
+// Safe date string conversion to prevent .toISOString() crashes
+const safeDateToString = (dateValue: any): string => {
+  const date = safeParseDate(dateValue);
+  if (!date) {
+    return new Date().toISOString(); // fallback to current date
+  }
+  
+  try {
+    return date.toISOString();
+  } catch (error) {
+    console.warn(`⚠️ Failed to convert date to string: ${dateValue}`, error);
+    return new Date().toISOString();
+  }
+};
+
+// Safe date comparison utility
+const isDateInRange = (dateValue: any, start: Date, end: Date): boolean => {
+  const date = safeParseDate(dateValue);
+  if (!date) {
+    return false;
+  }
+  return date >= start && date <= end;
+};
+
 export interface WeeklyMetrics {
   weekStart: Date;
   weekEnd: Date;
   newClients: number;
   clientNames: string[];
   businessVisits: number;
+  visits: number; // Alias for businessVisits for compatibility
   visitLocations: string[];
   goalsCompleted: number;
   goalTitles: string[];
@@ -21,6 +67,7 @@ export interface MonthlyMetrics {
   newClients: number;
   clientNames: string[];
   businessVisits: number;
+  visits: number; // Alias for businessVisits for compatibility
   visitLocations: string[];
   goalsCompleted: number;
   goalTitles: string[];
@@ -113,20 +160,30 @@ export const calculateWeeklyMetrics = (
     ? { start: weekStart, end: weekEnd }
     : getCurrentWeek();
 
-  // Filter data for the week
+  // Filter data for the week with safe date handling
   const weekClients = clients.filter(client => {
-    const createdAt = new Date(client.created_at);
-    return createdAt >= start && createdAt <= end;
+    if (!client.created_at) {
+      console.warn('⚠️ Client missing created_at date:', client.name);
+      return false;
+    }
+    return isDateInRange(client.created_at, start, end);
   });
 
   const weekPayments = payments.filter(payment => {
-    const paymentDate = new Date(payment.payment_date);
-    return paymentDate >= start && paymentDate <= end && payment.status === 'confirmed';
+    if (!payment.payment_date) {
+      console.warn('⚠️ Payment missing payment_date:', payment.id);
+      return false;
+    }
+    return isDateInRange(payment.payment_date, start, end) && payment.status === 'confirmed';
   });
 
   const weekVisits = visits.filter(visit => {
-    const visitDate = new Date(visit.created_at || visit.timestamp || Date.now());
-    return visitDate >= start && visitDate <= end;
+    const visitDate = visit.created_at || visit.timestamp;
+    if (!visitDate) {
+      console.warn('⚠️ Visit missing date information:', visit.id || 'unknown');
+      return false;
+    }
+    return isDateInRange(visitDate, start, end);
   });
 
   // Calculate goal completions (simplified - goals with progress >= 100%)
@@ -136,12 +193,15 @@ export const calculateWeeklyMetrics = (
     return true; // Placeholder
   });
 
-  // Calculate payment details
-  const paymentDetails = weekPayments.map(payment => ({
-    client: payment.client?.name || 'Unknown Client',
-    amount: payment.amount,
-    date: new Date(payment.payment_date).toLocaleDateString()
-  }));
+  // Calculate payment details with safe date handling
+  const paymentDetails = weekPayments.map(payment => {
+    const safeDate = safeParseDate(payment.payment_date);
+    return {
+      client: payment.client?.name || 'Unknown Client',
+      amount: payment.amount,
+      date: safeDate ? safeDate.toLocaleDateString() : 'Invalid Date'
+    };
+  });
 
   return {
     weekStart: start,
@@ -149,6 +209,7 @@ export const calculateWeeklyMetrics = (
     newClients: weekClients.length,
     clientNames: weekClients.map(c => c.name),
     businessVisits: weekVisits.length,
+    visits: weekVisits.length, // Alias for businessVisits for compatibility
     visitLocations: weekVisits.map(v => v.location).filter((loc): loc is string => Boolean(loc)),
     goalsCompleted: completedGoals.length,
     goalTitles: completedGoals.map(g => g.title),
@@ -174,20 +235,30 @@ export const calculateMonthlyMetrics = (
     ? { start: monthStart, end: monthEnd }
     : getCurrentMonth();
 
-  // Calculate overall month metrics
+  // Calculate overall month metrics with safe date handling
   const monthClients = clients.filter(client => {
-    const createdAt = new Date(client.created_at);
-    return createdAt >= start && createdAt <= end;
+    if (!client.created_at) {
+      console.warn('⚠️ Client missing created_at date:', client.name);
+      return false;
+    }
+    return isDateInRange(client.created_at, start, end);
   });
 
   const monthPayments = payments.filter(payment => {
-    const paymentDate = new Date(payment.payment_date);
-    return paymentDate >= start && paymentDate <= end && payment.status === 'confirmed';
+    if (!payment.payment_date) {
+      console.warn('⚠️ Payment missing payment_date:', payment.id);
+      return false;
+    }
+    return isDateInRange(payment.payment_date, start, end) && payment.status === 'confirmed';
   });
 
   const monthVisits = visits.filter(visit => {
-    const visitDate = new Date(visit.created_at || visit.timestamp || Date.now());
-    return visitDate >= start && visitDate <= end;
+    const visitDate = visit.created_at || visit.timestamp;
+    if (!visitDate) {
+      console.warn('⚠️ Visit missing date information:', visit.id || 'unknown');
+      return false;
+    }
+    return isDateInRange(visitDate, start, end);
   });
 
   const completedGoals = goals.filter(goal => true); // Placeholder
@@ -212,11 +283,14 @@ export const calculateMonthlyMetrics = (
     currentWeek.setDate(currentWeek.getDate() + 7);
   }
 
-  const paymentDetails = monthPayments.map(payment => ({
-    client: payment.client?.name || 'Unknown Client',
-    amount: payment.amount,
-    date: new Date(payment.payment_date).toLocaleDateString()
-  }));
+  const paymentDetails = monthPayments.map(payment => {
+    const safeDate = safeParseDate(payment.payment_date);
+    return {
+      client: payment.client?.name || 'Unknown Client',
+      amount: payment.amount,
+      date: safeDate ? safeDate.toLocaleDateString() : 'Invalid Date'
+    };
+  });
 
   return {
     monthStart: start,
@@ -224,6 +298,7 @@ export const calculateMonthlyMetrics = (
     newClients: monthClients.length,
     clientNames: monthClients.map(c => c.name),
     businessVisits: monthVisits.length,
+    visits: monthVisits.length, // Alias for businessVisits for compatibility
     visitLocations: monthVisits.map(v => v.location).filter((loc): loc is string => Boolean(loc)),
     goalsCompleted: completedGoals.length,
     goalTitles: completedGoals.map(g => g.title),

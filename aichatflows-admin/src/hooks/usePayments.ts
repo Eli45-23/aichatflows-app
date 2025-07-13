@@ -233,22 +233,63 @@ export function usePayments() {
     return updatePayment(id, { status });
   };
 
-  // Get total revenue (confirmed payments only)
+  // Get total revenue (confirmed payments only) with null safety
   const getTotalRevenue = () => {
     return payments
-      .filter(payment => payment.status === 'confirmed')
-      .reduce((total, payment) => total + payment.amount, 0);
+      .filter(payment => {
+        // Add null safety check
+        if (!payment || !payment.status) {
+          console.warn('⚠️ Payment missing status property:', payment);
+          return false;
+        }
+        return payment.status === 'confirmed';
+      })
+      .reduce((total, payment) => {
+        // Add null safety for amount
+        if (!payment || typeof payment.amount !== 'number') {
+          console.warn('⚠️ Payment missing or invalid amount:', payment);
+          return total;
+        }
+        return total + payment.amount;
+      }, 0);
   };
 
-  // Get revenue for specific time period
+  // Get revenue for specific time period with null safety
   const getRevenueForPeriod = (startDate: Date, endDate: Date) => {
     return payments
       .filter(payment => {
+        // Add null safety checks
+        if (!payment || !payment.status) {
+          console.warn('⚠️ Payment missing status property:', payment);
+          return false;
+        }
         if (payment.status !== 'confirmed') return false;
-        const paymentDate = new Date(payment.payment_date);
-        return paymentDate >= startDate && paymentDate <= endDate;
+        
+        if (!payment.payment_date) {
+          console.warn('⚠️ Payment missing payment_date:', payment);
+          return false;
+        }
+        
+        try {
+          const paymentDate = new Date(payment.payment_date);
+          if (isNaN(paymentDate.getTime())) {
+            console.warn('⚠️ Invalid payment date:', payment.payment_date);
+            return false;
+          }
+          return paymentDate >= startDate && paymentDate <= endDate;
+        } catch (error) {
+          console.warn('⚠️ Error parsing payment date:', payment.payment_date, error);
+          return false;
+        }
       })
-      .reduce((total, payment) => total + payment.amount, 0);
+      .reduce((total, payment) => {
+        // Add null safety for amount
+        if (!payment || typeof payment.amount !== 'number') {
+          console.warn('⚠️ Payment missing or invalid amount:', payment);
+          return total;
+        }
+        return total + payment.amount;
+      }, 0);
   };
 
   // Get today's revenue
@@ -291,15 +332,29 @@ export function usePayments() {
     return getRevenueForPeriod(startOfYear, endOfYear);
   };
 
-  // Filter payments by status
+  // Filter payments by status with null safety
   const getPaymentsByStatus = (status: Payment['status']) => {
-    return payments.filter(payment => payment.status === status);
+    return payments.filter(payment => {
+      // Add null safety check
+      if (!payment || !payment.status) {
+        console.warn('⚠️ Payment missing status property:', payment);
+        return false;
+      }
+      return payment.status === status;
+    });
   };
 
-  // Filter payments
+  // Filter payments with null safety
   const filterPayments = (status: 'all' | Payment['status']) => {
     if (status === 'all') return payments;
-    return payments.filter(payment => payment.status === status);
+    return payments.filter(payment => {
+      // Add null safety check
+      if (!payment || !payment.status) {
+        console.warn('⚠️ Payment missing status property:', payment);
+        return false;
+      }
+      return payment.status === status;
+    });
   };
 
   // Get revenue statistics

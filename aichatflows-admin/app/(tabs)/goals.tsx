@@ -100,32 +100,121 @@ export default function GoalsScreen() {
   };
 
   const handleCreateGoal = async () => {
-    const goalData = {
-      title: newGoal.title || `${newGoal.frequency} client goal`,
-      frequency: newGoal.frequency,
-      target: Number(newGoal.target),
-      is_global: true, // All client acquisition goals are global
-    };
-
-    const validation = validateGoal(goalData);
-    if (!validation.isValid) {
-      setValidationErrors(validation.errors);
-      return;
-    }
-
     try {
+      console.log('🎯 Starting goal creation process');
+      console.log('📝 Form data:', newGoal);
+      
+      // Clear previous validation errors
+      setValidationErrors({});
+      
+      // Enhanced input validation and sanitization
+      const trimmedTitle = newGoal.title?.trim();
+      const trimmedTarget = newGoal.target?.trim();
+      
+      // Validate target number with enhanced safety
+      if (!trimmedTarget) {
+        setValidationErrors({ target: 'Target is required' });
+        Alert.alert('Validation Error', 'Please enter a target number for your goal.');
+        return;
+      }
+      
+      const targetNumber = parseFloat(trimmedTarget);
+      if (isNaN(targetNumber) || !isFinite(targetNumber)) {
+        setValidationErrors({ target: 'Target must be a valid number' });
+        Alert.alert('Validation Error', 'Please enter a valid number for your target.');
+        return;
+      }
+      
+      if (targetNumber <= 0) {
+        setValidationErrors({ target: 'Target must be greater than 0' });
+        Alert.alert('Validation Error', 'Target must be a positive number greater than 0.');
+        return;
+      }
+      
+      if (targetNumber > 10000) {
+        setValidationErrors({ target: 'Target seems too large' });
+        Alert.alert('Validation Error', 'Target number seems unusually large. Please check your input.');
+        return;
+      }
+      
+      // Validate frequency
+      if (!newGoal.frequency || !['daily', 'weekly', 'monthly'].includes(newGoal.frequency)) {
+        setValidationErrors({ frequency: 'Please select a valid frequency' });
+        Alert.alert('Validation Error', 'Please select a frequency for your goal.');
+        return;
+      }
+      
+      const goalData = {
+        title: trimmedTitle || `${newGoal.frequency} client goal`,
+        frequency: newGoal.frequency,
+        target: Math.round(targetNumber), // Ensure integer for client counts
+        is_global: true, // All client acquisition goals are global
+      };
+      
+      console.log('📤 Prepared goal data:', goalData);
+
+      // Additional validation using the validation utility
+      const validation = validateGoal(goalData);
+      if (!validation.isValid) {
+        console.log('❌ Validation failed:', validation.errors);
+        setValidationErrors(validation.errors);
+        
+        // Show specific validation error
+        const errorMessages = Object.values(validation.errors).join('\n');
+        Alert.alert('Validation Error', errorMessages);
+        return;
+      }
+
+      console.log('✅ Validation passed, creating goal...');
+
       if (editingGoal) {
+        console.log('📝 Updating existing goal:', editingGoal.id);
         await updateGoal(editingGoal.id, goalData);
         Alert.alert('Success', 'Goal updated successfully!');
+        console.log('✅ Goal updated successfully');
       } else {
+        console.log('➕ Creating new goal');
         await createGoal(goalData);
         Alert.alert('Success', 'Goal created successfully!');
+        console.log('✅ Goal created successfully');
       }
 
       resetForm();
       setShowModal(false);
-    } catch (error) {
-      // Error already handled in hook
+      
+    } catch (error: any) {
+      console.error('❌ Goal creation/update failed:', error);
+      console.error('📄 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        formData: newGoal,
+        editingGoal: editingGoal?.id
+      });
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to save goal';
+      if (error.message.includes('required')) {
+        errorMessage = 'Missing required information. Please fill in all required fields.';
+      } else if (error.message.includes('target')) {
+        errorMessage = 'Invalid target value. Please enter a valid number.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('database') || error.message.includes('supabase')) {
+        errorMessage = 'Database error. Please try again or contact support.';
+      } else if (error.message.includes('duplicate') || error.message.includes('unique')) {
+        errorMessage = 'A goal with similar settings already exists. Please modify your goal.';
+      } else {
+        errorMessage = `Failed to save goal: ${error.message}`;
+      }
+      
+      Alert.alert(
+        editingGoal ? 'Update Failed' : 'Creation Failed',
+        errorMessage,
+        [
+          { text: 'Try Again', onPress: () => {} },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     }
   };
 
@@ -239,7 +328,33 @@ export default function GoalsScreen() {
   };
 
   const renderGoal = ({ item }: { item: Goal }) => {
-    const progress = calculateGoalProgress(item, payments, clients);
+    // Add null safety check for goal item
+    if (!item) {
+      console.warn('⚠️ Null goal item in renderGoal');
+      return (
+        <View className="card-elevated mb-4 bg-yellow-50 border border-yellow-200">
+          <View className="p-4">
+            <Text className="text-yellow-800 font-medium">⚠️ Goal data missing</Text>
+            <Text className="text-yellow-600 text-sm mt-1">This goal has incomplete data and cannot be displayed properly.</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // Safe progress calculation with fallback
+    let progress;
+    try {
+      progress = calculateGoalProgress(item, payments, clients);
+    } catch (error) {
+      console.warn('⚠️ Error calculating goal progress:', error);
+      progress = {
+        current: 0,
+        percentage: 0,
+        isComplete: false,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+      };
+    }
 
     return (
       <View className={`card-elevated mb-4 animate-enter ${
@@ -258,7 +373,7 @@ export default function GoalsScreen() {
             <View className="flex-row items-center space-x-3 mb-2">
               <View className="bg-green-50 px-3 py-1 rounded-card">
                 <Text className="text-xs font-medium text-green-600">
-                  {item.frequency} • client acquisition
+                  {item.frequency || 'weekly'} • client acquisition
                 </Text>
               </View>
               
@@ -372,129 +487,132 @@ export default function GoalsScreen() {
   }).length;
   const activeGoals = totalGoals - completedGoals;
 
-  return (
-    <SafeAreaView className={`flex-1 ${themeClasses.bg.secondary} theme-${theme}`}>
-      <View className="px-page py-section">
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-8 animate-enter">
-          <View>
-            <Text className="text-3xl font-bold text-text-primary">Goals</Text>
-            <Text className="text-text-muted mt-1">{filteredGoals.length} goals tracking</Text>
-            <View className="flex-row space-x-4 mt-2">
-              <View className="status-success px-3 py-1 rounded-full">
-                <Text className="text-xs font-medium">{completedGoals} completed</Text>
-              </View>
-              <View className="status-info px-3 py-1 rounded-full">
-                <Text className="text-xs font-medium">{activeGoals} active</Text>
-              </View>
+  const renderHeader = () => (
+    <View className="px-page py-section">
+      {/* Header */}
+      <View className="flex-row items-center justify-between mb-8 animate-enter">
+        <View>
+          <Text className="text-3xl font-bold text-text-primary">Goals</Text>
+          <Text className="text-text-muted mt-1">{filteredGoals.length} goals tracking</Text>
+          <View className="flex-row space-x-4 mt-2">
+            <View className="status-success px-3 py-1 rounded-full">
+              <Text className="text-xs font-medium">{completedGoals} completed</Text>
+            </View>
+            <View className="status-info px-3 py-1 rounded-full">
+              <Text className="text-xs font-medium">{activeGoals} active</Text>
             </View>
           </View>
-          <TouchableOpacity
-            className="btn-primary flex-row items-center"
-            onPress={handleOpenAddModal}
-          >
-            <Plus size={20} color="white" />
-            <Text className="text-white font-semibold ml-2">New Goal</Text>
-          </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          className="btn-primary flex-row items-center"
+          onPress={handleOpenAddModal}
+        >
+          <Plus size={20} color="white" />
+          <Text className="text-white font-semibold ml-2">New Goal</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Stats Cards */}
-        {goals.length > 0 && (
-          <View className="flex-row gap-4 mb-8 animate-enter-delayed">
-            <View className="card-primary flex-1">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-2xl font-bold text-text-primary">{totalGoals}</Text>
-                  <Text className="text-text-muted text-sm">Total Goals</Text>
-                </View>
-                <Target size={20} color="#667EEA" />
+      {/* Stats Cards */}
+      {goals.length > 0 && (
+        <View className="flex-row gap-4 mb-8 animate-enter-delayed">
+          <View className="card-primary flex-1">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-2xl font-bold text-text-primary">{totalGoals}</Text>
+                <Text className="text-text-muted text-sm">Total Goals</Text>
               </View>
-            </View>
-            <View className="card-primary flex-1">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-2xl font-bold text-success">{completedGoals}</Text>
-                  <Text className="text-text-muted text-sm">Completed</Text>
-                </View>
-                <CheckCircle size={20} color="#00D9FF" />
-              </View>
-            </View>
-            <View className="card-primary flex-1">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-2xl font-bold text-primary">{activeGoals}</Text>
-                  <Text className="text-text-muted text-sm">Active</Text>
-                </View>
-                <Target size={20} color="#00D4AA" />
-              </View>
+              <Target size={20} color="#667EEA" />
             </View>
           </View>
-        )}
-
-        {/* Goal Streak Tracker */}
-        <GoalStreak 
-          streakData={goalStreak} 
-          loading={false}
-          onStreakTap={() => {
-            Alert.alert(
-              '🔥 Goal Streak Info',
-              'Keep making progress on your goals daily to maintain your streak! Each day you add clients, complete goals, or make business progress counts toward your streak.',
-              [{ text: 'Got it!' }]
-            );
-          }}
-        />
-
-        {/* Enhanced Search Bar with Filters and Sort */}
-        <View className="mb-6 gap-4 animate-enter-delayed-2">
-          {/* Search Input with Sort */}
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1">
-              <SearchInput
-                placeholder="Search goals by title, frequency..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-              />
+          <View className="card-primary flex-1">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-2xl font-bold text-success">{completedGoals}</Text>
+                <Text className="text-text-muted text-sm">Completed</Text>
+              </View>
+              <CheckCircle size={20} color="#00D9FF" />
             </View>
-            
-            <SortDropdown
-              options={GOAL_SORT_OPTIONS}
-              selectedSort={selectedSort}
-              onSortChange={setSelectedSort}
-              placeholder="Sort"
-              className="min-w-[120px] max-w-[140px]"
+          </View>
+          <View className="card-primary flex-1">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-2xl font-bold text-primary">{activeGoals}</Text>
+                <Text className="text-text-muted text-sm">Active</Text>
+              </View>
+              <Target size={20} color="#00D4AA" />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Goal Streak Tracker */}
+      <GoalStreak 
+        streakData={goalStreak} 
+        loading={false}
+        onStreakTap={() => {
+          Alert.alert(
+            '🔥 Goal Streak Info',
+            'Keep making progress on your goals daily to maintain your streak! Each day you add clients, complete goals, or make business progress counts toward your streak.',
+            [{ text: 'Got it!' }]
+          );
+        }}
+      />
+
+      {/* Enhanced Search Bar with Filters and Sort */}
+      <View className="mb-6 gap-4 animate-enter-delayed-2">
+        {/* Search Input with Sort */}
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <SearchInput
+              placeholder="Search goals by title, frequency..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
             />
           </View>
           
-          {/* Filter Bar */}
-          <FilterBar
-            filterGroups={GOAL_FILTER_GROUPS}
-            selectedFilters={selectedFilters}
-            onFilterChange={(groupId, values) => {
-              setSelectedFilters(prev => ({
-                ...prev,
-                [groupId]: values
-              }));
-            }}
-            onClearAll={() => setSelectedFilters({})}
+          <SortDropdown
+            options={GOAL_SORT_OPTIONS}
+            selectedSort={selectedSort}
+            onSortChange={setSelectedSort}
+            placeholder="Sort"
+            className="min-w-[120px] max-w-[140px]"
           />
         </View>
+        
+        {/* Filter Bar */}
+        <FilterBar
+          filterGroups={GOAL_FILTER_GROUPS}
+          selectedFilters={selectedFilters}
+          onFilterChange={(groupId, values) => {
+            setSelectedFilters(prev => ({
+              ...prev,
+              [groupId]: values
+            }));
+          }}
+          onClearAll={() => setSelectedFilters({})}
+        />
+      </View>
+    </View>
+  );
 
-        {/* Goals List */}
-        <FlatList
-          data={filteredGoals}
-          renderItem={renderGoal}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#00D4AA']}
-              tintColor="#00D4AA"
-            />
-          }
+  return (
+    <SafeAreaView className={`flex-1 ${themeClasses.bg.secondary} theme-${theme}`}>
+      <FlatList
+        data={filteredGoals}
+        renderItem={renderGoal}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#00D4AA']}
+            tintColor="#00D4AA"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 120 }}
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center py-12">
               <Ionicons name="trophy-outline" size={64} color="#9CA3AF" />
@@ -643,7 +761,6 @@ export default function GoalsScreen() {
           destructive={true}
           icon="trash"
         />
-      </View>
     </SafeAreaView>
   );
 }

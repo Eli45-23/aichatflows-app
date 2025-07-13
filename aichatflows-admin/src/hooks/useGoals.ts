@@ -434,9 +434,16 @@ export function useGoals() {
     return goals.filter(goal => goal.is_global);
   };
 
-  // Get goals by frequency
+  // Get goals by frequency (with null safety)
   const getGoalsByFrequency = (frequency: 'daily' | 'weekly' | 'monthly') => {
-    return goals.filter(goal => goal.frequency === frequency);
+    return goals.filter(goal => {
+      // Add null safety check
+      if (!goal || !goal.frequency) {
+        console.warn('⚠️ Goal missing frequency property:', goal);
+        return false;
+      }
+      return goal.frequency === frequency;
+    });
   };
 
   // Get goals by metric
@@ -444,8 +451,37 @@ export function useGoals() {
     return goals.filter(goal => goal.metric === metric);
   };
 
-  // Calculate goal progress
+  // Calculate goal progress (with null safety)
   const calculateGoalProgress = (goal: Goal, payments: any[], clients: any[]) => {
+    // Add comprehensive null safety checks
+    if (!goal) {
+      console.warn('⚠️ Goal is null or undefined in calculateGoalProgress');
+      return {
+        current: 0,
+        percentage: 0,
+        isComplete: false,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+      };
+    }
+
+    if (!goal.frequency) {
+      console.warn('⚠️ Goal missing frequency property:', goal);
+      // Provide default frequency
+      goal.frequency = 'weekly';
+    }
+
+    if (!goal.target || goal.target <= 0) {
+      console.warn('⚠️ Goal has invalid target:', goal);
+      return {
+        current: 0,
+        percentage: 0,
+        isComplete: false,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+      };
+    }
+
     const now = new Date();
     let startDate: Date;
     let endDate = now;
@@ -466,12 +502,23 @@ export function useGoals() {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    // Calculate client acquisition progress (global or client-specific)
-    const newClients = clients.filter(client => 
-      new Date(client.created_at) >= startDate &&
-      new Date(client.created_at) <= endDate &&
-      (goal.is_global || client.id === goal.client_id)
-    );
+    // Calculate client acquisition progress (global or client-specific) with null safety
+    const newClients = (clients || []).filter(client => {
+      // Add null safety for client data
+      if (!client || !client.created_at) {
+        console.warn('⚠️ Client missing created_at:', client);
+        return false;
+      }
+      
+      try {
+        return new Date(client.created_at) >= startDate &&
+               new Date(client.created_at) <= endDate &&
+               (goal.is_global || client.id === goal.client_id);
+      } catch (error) {
+        console.warn('⚠️ Error parsing client date:', client.created_at, error);
+        return false;
+      }
+    });
     return {
       current: newClients.length,
       percentage: goal.target > 0 ? Math.min((newClients.length / goal.target) * 100, 100) : 0,

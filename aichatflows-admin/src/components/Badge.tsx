@@ -159,23 +159,33 @@ export const Badge: React.FC<BadgeProps> = ({
         withSpring(1, { damping: 12, stiffness: 300 })
       );
     }
+  }, [animated, scale]);
 
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
     if (pulse) {
       pulseScale.value = withSequence(
         withTiming(1.05, { duration: 1000 }),
         withTiming(1, { duration: 1000 })
       );
-      // Repeat pulse
-      const interval = setInterval(() => {
+      
+      interval = setInterval(() => {
         pulseScale.value = withSequence(
           withTiming(1.05, { duration: 1000 }),
           withTiming(1, { duration: 1000 })
         );
       }, 2000);
-      
-      return () => clearInterval(interval);
+    } else {
+      pulseScale.value = withTiming(1, { duration: 300 });
     }
-  }, [animated, pulse]);
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [pulse, pulseScale]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

@@ -287,8 +287,8 @@ export function sortItems<T extends SearchableItem>(
   sort: SortConfig<T>
 ): T[] {
   return [...items].sort((a, b) => {
-    const aValue = a[sort.field];
-    const bValue = b[sort.field];
+    const aValue = a ? a[sort.field] : null;
+    const bValue = b ? b[sort.field] : null;
 
     // Handle null/undefined values
     if (aValue === null || aValue === undefined) return 1;

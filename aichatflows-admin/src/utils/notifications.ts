@@ -26,13 +26,24 @@ async function saveNotificationToDatabase(
       .single();
 
     if (error) {
-      console.error('Error saving notification to database:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Please run the migration script to create it.');
+        console.warn('💡 To fix: Run the SQL script at migrations/01_create_notifications_table.sql in your Supabase database');
+        return null;
+      }
+      console.error('❌ Error saving notification to database:', error);
       return null;
     }
 
     return notification;
-  } catch (error) {
-    console.error('Error in saveNotificationToDatabase:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Skipping notification save.');
+      return null;
+    }
+    console.error('❌ Error in saveNotificationToDatabase:', error);
     return null;
   }
 }
@@ -58,13 +69,23 @@ async function wasRecentlySent(
       .limit(1);
 
     if (error) {
-      console.error('Error checking recent notifications:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Allowing notification to proceed.');
+        return false; // Allow notification to be sent if table doesn't exist
+      }
+      console.error('❌ Error checking recent notifications:', error);
       return false;
     }
 
     return (data && data.length > 0) || false;
-  } catch (error) {
-    console.error('Error in wasRecentlySent:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Allowing notification to proceed.');
+      return false; // Allow notification to be sent if table doesn't exist
+    }
+    console.error('❌ Error in wasRecentlySent:', error);
     return false;
   }
 }
@@ -251,13 +272,24 @@ export async function getNotificationHistory(
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching notification history:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Returning empty notification history.');
+        console.warn('💡 To fix: Run the SQL script at migrations/01_create_notifications_table.sql in your Supabase database');
+        return [];
+      }
+      console.error('❌ Error fetching notification history:', error);
       return [];
     }
 
     return data || [];
-  } catch (error) {
-    console.error('Error in getNotificationHistory:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Returning empty notification history.');
+      return [];
+    }
+    console.error('❌ Error in getNotificationHistory:', error);
     return [];
   }
 }
@@ -275,13 +307,23 @@ export async function markNotificationAsRead(
       .eq('user_id', userId);
 
     if (error) {
-      console.error('Error marking notification as read:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Cannot mark notification as read.');
+        return false;
+      }
+      console.error('❌ Error marking notification as read:', error);
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error('Error in markNotificationAsRead:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Cannot mark notification as read.');
+      return false;
+    }
+    console.error('❌ Error in markNotificationAsRead:', error);
     return false;
   }
 }
@@ -296,13 +338,23 @@ export async function markAllNotificationsAsRead(userId: string): Promise<boolea
       .is('read_at', null);
 
     if (error) {
-      console.error('Error marking all notifications as read:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Cannot mark notifications as read.');
+        return false;
+      }
+      console.error('❌ Error marking all notifications as read:', error);
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error('Error in markAllNotificationsAsRead:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Cannot mark notifications as read.');
+      return false;
+    }
+    console.error('❌ Error in markAllNotificationsAsRead:', error);
     return false;
   }
 }
@@ -317,13 +369,23 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
       .is('read_at', null);
 
     if (error) {
-      console.error('Error getting unread count:', error);
+      // Handle missing table gracefully
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn('📋 Notifications table does not exist. Returning 0 unread count.');
+        return 0;
+      }
+      console.error('❌ Error getting unread count:', error);
       return 0;
     }
 
     return count || 0;
-  } catch (error) {
-    console.error('Error in getUnreadNotificationCount:', error);
+  } catch (error: any) {
+    // Handle network or other errors gracefully
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+      console.warn('📋 Notifications table does not exist. Returning 0 unread count.');
+      return 0;
+    }
+    console.error('❌ Error in getUnreadNotificationCount:', error);
     return 0;
   }
 }

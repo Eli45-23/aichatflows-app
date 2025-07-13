@@ -15,6 +15,7 @@ export function useNotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load notifications
   const loadNotifications = useCallback(async () => {
@@ -22,15 +23,33 @@ export function useNotificationCenter() {
 
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('📱 Loading notification history for user:', user.id);
+      
       const [notificationList, count] = await Promise.all([
         getNotificationHistory(user.id),
         getUnreadNotificationCount(user.id)
       ]);
       
+      console.log('✅ Loaded notifications:', notificationList.length, 'unread:', count);
+      
       setNotifications(notificationList);
       setUnreadCount(count);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
+    } catch (error: any) {
+      console.error('❌ Error loading notifications:', error);
+      
+      // Handle specific database errors gracefully
+      if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+        setError('Notifications table not found. Database setup may be incomplete.');
+        console.warn('💡 To fix: Run the SQL migration script at migrations/01_create_notifications_table.sql');
+      } else {
+        setError('Failed to load notifications. Please try again.');
+      }
+      
+      // Set safe defaults so app doesn't crash
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
@@ -42,6 +61,8 @@ export function useNotificationCenter() {
 
     try {
       setRefreshing(true);
+      setError(null);
+      
       const [notificationList, count] = await Promise.all([
         getNotificationHistory(user.id),
         getUnreadNotificationCount(user.id)
@@ -49,8 +70,17 @@ export function useNotificationCenter() {
       
       setNotifications(notificationList);
       setUnreadCount(count);
-    } catch (error) {
-      console.error('Error refreshing notifications:', error);
+    } catch (error: any) {
+      console.error('❌ Error refreshing notifications:', error);
+      
+      // Handle specific database errors gracefully
+      if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+        setError('Notifications table not found. Database setup may be incomplete.');
+      } else {
+        setError('Failed to refresh notifications. Please try again.');
+      }
+      
+      // Keep existing data if refresh fails
     } finally {
       setRefreshing(false);
     }
@@ -94,7 +124,7 @@ export function useNotificationCenter() {
     // Initial load
     loadNotifications();
 
-    // Subscribe to new notifications
+    // Subscribe to new notifications (with error handling)
     const subscription = supabase
       .channel(`notifications:${user.id}`)
       .on(
@@ -106,14 +136,18 @@ export function useNotificationCenter() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('New notification received:', payload);
+          console.log('📨 New notification received:', payload);
           
-          // Add new notification to the top
-          setNotifications(prev => [payload.new as NotificationLog, ...prev]);
-          
-          // Increment unread count if notification is unread
-          if (!payload.new.read_at) {
-            setUnreadCount(prev => prev + 1);
+          try {
+            // Add new notification to the top
+            setNotifications(prev => [payload.new as NotificationLog, ...prev]);
+            
+            // Increment unread count if notification is unread
+            if (!payload.new.read_at) {
+              setUnreadCount(prev => prev + 1);
+            }
+          } catch (error) {
+            console.error('❌ Error handling new notification:', error);
           }
         }
       )
@@ -126,22 +160,37 @@ export function useNotificationCenter() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Notification updated:', payload);
+          console.log('📝 Notification updated:', payload);
           
-          // Update the notification in the list
-          setNotifications(prev =>
-            prev.map(n =>
-              n.id === payload.new.id ? payload.new as NotificationLog : n
-            )
-          );
-          
-          // Update unread count if read status changed
-          if (payload.old.read_at === null && payload.new.read_at !== null) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
+          try {
+            // Update the notification in the list
+            setNotifications(prev =>
+              prev.map(n =>
+                n.id === payload.new.id ? payload.new as NotificationLog : n
+              )
+            );
+            
+            // Update unread count if read status changed
+            if (payload.old.read_at === null && payload.new.read_at !== null) {
+              setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+          } catch (error) {
+            console.error('❌ Error handling notification update:', error);
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Subscribed to notification updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Notification subscription error:', err);
+          setError('Real-time notifications may not work properly.');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⏱️ Notification subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Notification subscription closed');
+        }
+      });
 
     return () => {
       subscription.unsubscribe();
@@ -164,6 +213,7 @@ export function useNotificationCenter() {
     unreadCount,
     loading,
     refreshing,
+    error,
     refresh,
     markAsRead,
     markAllAsRead,

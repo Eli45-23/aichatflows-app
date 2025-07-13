@@ -228,19 +228,35 @@ export default function PaymentsScreen() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const renderPayment = ({ item }: { item: Payment }) => (
-    <View className="bg-white rounded-xl p-4 mb-3 shadow-sm">
-      <TouchableOpacity onPress={() => router.push(`/payment/${item.id}`)}>
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-lg font-semibold text-gray-900">
-                {formatCurrency(item.amount)}
-              </Text>
-              <View className={`px-2 py-1 rounded-full ${(statusColors as any)[item.status] || 'bg-gray-100 text-gray-800'}`}>
-                <Text className="text-xs font-medium capitalize">{item.status}</Text>
+  const renderPayment = ({ item }: { item: Payment }) => {
+    // Add null safety check for payment item
+    if (!item) {
+      console.warn('⚠️ Null payment item in renderPayment');
+      return (
+        <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-3">
+          <Text className="text-yellow-800 font-medium">⚠️ Payment data missing</Text>
+          <Text className="text-yellow-600 text-sm mt-1">This payment has incomplete data and cannot be displayed properly.</Text>
+        </View>
+      );
+    }
+
+    // Safe amount formatting with fallback
+    const safeAmount = typeof item.amount === 'number' ? item.amount : 0;
+    const safeStatus = item.status || 'pending';
+
+    return (
+      <View className="bg-white rounded-xl p-4 mb-3 shadow-sm">
+        <TouchableOpacity onPress={() => router.push(`/payment/${item.id}`)}>
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-lg font-semibold text-gray-900">
+                  {formatCurrency(safeAmount)}
+                </Text>
+                <View className={`px-2 py-1 rounded-full ${(statusColors as any)[safeStatus] || 'bg-gray-100 text-gray-800'}`}>
+                  <Text className="text-xs font-medium capitalize">{safeStatus}</Text>
+                </View>
               </View>
-            </View>
             
             {item.client && (
               <Text className="text-gray-600 mb-1">{item.client.name}</Text>
@@ -254,7 +270,7 @@ export default function PaymentsScreen() {
             
             <View className="flex-row items-center justify-between">
               <Text className="text-sm text-gray-500">
-                {formatDate(item.payment_date)}
+                {item.payment_date ? formatDate(item.payment_date) : 'Date not set'}
               </Text>
               {item.client?.email && (
                 <Text className="text-xs text-gray-400">{item.client.email}</Text>
@@ -281,7 +297,8 @@ export default function PaymentsScreen() {
         </View>
       </TouchableOpacity>
     </View>
-  );
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -314,125 +331,128 @@ export default function PaymentsScreen() {
     );
   }
 
-  return (
-    <SafeAreaView className="flex-1 bg-bg-secondary">
-      <View className="px-6 py-4">
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-6">
-          <View>
-            <Text className="text-lg font-semibold text-gray-900">
-              Payments ({filteredPayments.length})
-            </Text>
-            <View className="flex-row space-x-4 mt-1">
-              <Text className="text-green-600 text-sm">{formatCurrency(revenueStats.total)} total</Text>
-              <Text className="text-blue-600 text-sm">{payments.filter(p => p.status === 'confirmed').length} confirmed</Text>
-            </View>
+  const renderHeader = () => (
+    <View className="px-6 py-4">
+      {/* Header */}
+      <View className="flex-row items-center justify-between mb-6">
+        <View>
+          <Text className="text-lg font-semibold text-gray-900">
+            Payments ({filteredPayments.length})
+          </Text>
+          <View className="flex-row space-x-4 mt-1">
+            <Text className="text-green-600 text-sm">{formatCurrency(revenueStats.total)} total</Text>
+            <Text className="text-blue-600 text-sm">{payments.filter(p => p.status === 'confirmed').length} confirmed</Text>
           </View>
-          <TouchableOpacity
-            className="btn-primary flex-row items-center"
-            onPress={handleOpenAddModal}
+        </View>
+        <TouchableOpacity
+          className="btn-primary flex-row items-center"
+          onPress={handleOpenAddModal}
+        >
+          <Ionicons name="add" size={20} color="white" />
+          <Text className="text-white font-semibold ml-1">Add Payment</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Revenue Stats */}
+      <View className="gap-4 mb-6">
+        <View className="flex-row gap-4">
+          <TouchableOpacity 
+            className="bg-white rounded-xl p-4 shadow-sm flex-1"
+            onPress={() => router.push('/analytics/revenue')}
           >
-            <Ionicons name="add" size={20} color="white" />
-            <Text className="text-white font-semibold ml-1">Add Payment</Text>
+            <Text className="text-2xl font-bold text-gray-900">
+              {formatCurrency(revenueStats.total)}
+            </Text>
+            <Text className="text-gray-600">Total Revenue</Text>
+            <Text className="text-sm text-green-600 mt-1">
+              {payments.filter(p => p.status === 'confirmed').length} confirmed
+            </Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Revenue Stats */}
-        <View className="gap-4 mb-6">
-          <View className="flex-row gap-4">
-            <TouchableOpacity 
-              className="bg-white rounded-xl p-4 shadow-sm flex-1"
-              onPress={() => router.push('/analytics/revenue')}
-            >
-              <Text className="text-2xl font-bold text-gray-900">
-                {formatCurrency(revenueStats.total)}
-              </Text>
-              <Text className="text-gray-600">Total Revenue</Text>
-              <Text className="text-sm text-green-600 mt-1">
-                {payments.filter(p => p.status === 'confirmed').length} confirmed
-              </Text>
-            </TouchableOpacity>
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-2xl font-bold text-gray-900">
-                {formatCurrency(revenueStats.today)}
-              </Text>
-              <Text className="text-gray-600">Today</Text>
-            </View>
-          </View>
-
-          <View className="flex-row gap-4">
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-gray-900">
-                {formatCurrency(revenueStats.week)}
-              </Text>
-              <Text className="text-gray-600 text-sm">This Week</Text>
-            </View>
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-gray-900">
-                {formatCurrency(revenueStats.month)}
-              </Text>
-              <Text className="text-gray-600 text-sm">This Month</Text>
-            </View>
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-yellow-600">
-                {payments.filter(p => p.status === 'pending').length}
-              </Text>
-              <Text className="text-gray-600 text-sm">Pending</Text>
-            </View>
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-2xl font-bold text-gray-900">
+              {formatCurrency(revenueStats.today)}
+            </Text>
+            <Text className="text-gray-600">Today</Text>
           </View>
         </View>
 
-        {/* Enhanced Search Bar with Filters and Sort */}
-        <View className="mb-6 gap-4">
-          {/* Search Input with Sort */}
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1">
-              <SearchInput
-                placeholder="Search payments by client, amount, description..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-              />
-            </View>
-            
-            <SortDropdown
-              options={PAYMENT_SORT_OPTIONS}
-              selectedSort={selectedSort}
-              onSortChange={setSelectedSort}
-              placeholder="Sort"
-              className="min-w-[120px] max-w-[140px]"
+        <View className="flex-row gap-4">
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-gray-900">
+              {formatCurrency(revenueStats.week)}
+            </Text>
+            <Text className="text-gray-600 text-sm">This Week</Text>
+          </View>
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-gray-900">
+              {formatCurrency(revenueStats.month)}
+            </Text>
+            <Text className="text-gray-600 text-sm">This Month</Text>
+          </View>
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-yellow-600">
+              {payments.filter(p => p.status === 'pending').length}
+            </Text>
+            <Text className="text-gray-600 text-sm">Pending</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Enhanced Search Bar with Filters and Sort */}
+      <View className="mb-6 gap-4">
+        {/* Search Input with Sort */}
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <SearchInput
+              placeholder="Search payments by client, amount, description..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
             />
           </View>
           
-          {/* Filter Bar */}
-          <FilterBar
-            filterGroups={PAYMENT_FILTER_GROUPS}
-            selectedFilters={selectedFilters}
-            onFilterChange={(groupId, values) => {
-              setSelectedFilters(prev => ({
-                ...prev,
-                [groupId]: values
-              }));
-            }}
-            onClearAll={() => setSelectedFilters({})}
+          <SortDropdown
+            options={PAYMENT_SORT_OPTIONS}
+            selectedSort={selectedSort}
+            onSortChange={setSelectedSort}
+            placeholder="Sort"
+            className="min-w-[120px] max-w-[140px]"
           />
         </View>
+        
+        {/* Filter Bar */}
+        <FilterBar
+          filterGroups={PAYMENT_FILTER_GROUPS}
+          selectedFilters={selectedFilters}
+          onFilterChange={(groupId, values) => {
+            setSelectedFilters(prev => ({
+              ...prev,
+              [groupId]: values
+            }));
+          }}
+          onClearAll={() => setSelectedFilters({})}
+        />
+      </View>
+    </View>
+  );
 
-        {/* Payment List */}
-        <FlatList
-          data={filteredPayments}
-          renderItem={renderPayment}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#00D4AA']}
-              tintColor="#00D4AA"
-            />
-          }
+  return (
+    <SafeAreaView className="flex-1 bg-bg-secondary">
+      <FlatList
+        data={filteredPayments}
+        renderItem={renderPayment}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#00D4AA']}
+            tintColor="#00D4AA"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center py-12">
               <Ionicons 
@@ -635,7 +655,6 @@ export default function PaymentsScreen() {
           destructive={true}
           icon="trash"
         />
-      </View>
     </SafeAreaView>
   );
 }

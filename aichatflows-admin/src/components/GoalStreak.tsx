@@ -145,9 +145,19 @@ export function GoalStreak({ streakData, loading = false, onStreakTap }: GoalStr
                   const date = new Date();
                   date.setDate(date.getDate() - (6 - i));
                   const dateStr = date.toISOString().split('T')[0];
-                  const isActive = streakData.streakDates.some(d => 
-                    d.toISOString().split('T')[0] === dateStr
-                  );
+                  
+                  // Safe date comparison with proper validation
+                  const isActive = streakData.streakDates.some(d => {
+                    // Check if d is a valid date object
+                    if (!d || !(d instanceof Date) || isNaN(d.getTime())) {
+                      return false;
+                    }
+                    try {
+                      return d.toISOString().split('T')[0] === dateStr;
+                    } catch (error) {
+                      return false;
+                    }
+                  });
                   
                   return (
                     <View key={i} className="flex-1 items-center">

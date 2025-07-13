@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LogOut, TrendingUp, Users, MapPin, CreditCard, Target, DollarSign } from 'lucide-react-native';
+import { LogOut, TrendingUp, Users, MapPin, CreditCard, Target, DollarSign, Brain, Sparkles } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -21,6 +21,7 @@ import { useClients } from '../../src/hooks/useClients';
 import { useGoals } from '../../src/hooks/useGoals';
 import { useBusinessVisits } from '../../src/hooks/useBusinessVisits';
 import { useNotificationCenter } from '../../src/hooks/useNotificationCenter';
+import { getCompletion, isOpenAIConfigured, testEnvironmentVariables } from '../../src/utils/openai';
 
 export default function DashboardScreen() {
   const { signOut } = useAuth();
@@ -52,6 +53,13 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAdvancedView, setShowAdvancedView] = useState(false);
+  
+  // AI-related state
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [weeklyPlan, setWeeklyPlan] = useState<string>('');
+  const [weeklyPlanLoading, setWeeklyPlanLoading] = useState(false);
+  const [showWeeklyPlanModal, setShowWeeklyPlanModal] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -65,6 +73,13 @@ export default function DashboardScreen() {
       scheduleSmartNotifications(clients, goals, visits);
     }
   }, [clients.length, goals.length, visits.length, permissionGranted]);
+
+  // Generate AI summary when dashboard loads or data changes
+  useEffect(() => {
+    if (!loading && stats && isOpenAIConfigured()) {
+      generateAISummary();
+    }
+  }, [stats.totalClients, stats.weekRevenue, currentWeek?.visits, currentWeek?.goalsCompleted]);
 
   // Get performance insights for dashboard
   const insights = getPerformanceInsights();
@@ -112,6 +127,210 @@ export default function DashboardScreen() {
         { text: 'Clear All Data', style: 'destructive', onPress: showClearDataDialog },
       ]
     );
+  };
+
+  // Generate AI Summary
+  const generateAISummary = async () => {
+    console.log('🤖 Starting AI Summary generation...');
+    
+    if (!isOpenAIConfigured()) {
+      console.warn('⚠️ OpenAI not configured for AI Summary');
+      
+      // Run comprehensive environment variable test
+      const { envTestResults, recommendations } = testEnvironmentVariables();
+      console.log('🔍 Running OpenAI environment variable diagnostics...');
+      console.log('📋 Recommendations:');
+      recommendations.forEach((rec, i) => console.log(`   ${rec}`));
+      
+      setAiSummary('⚠️ Configure OpenAI API key to enable AI insights. Check console for detailed setup instructions.');
+      return;
+    }
+
+    setAiSummaryLoading(true);
+    
+    try {
+      const businessData = {
+        visits: currentWeek?.visits || 0,
+        goalsCompleted: currentWeek?.goalsCompleted || 0,
+        totalClients: stats.totalClients || 0,
+        weekRevenue: stats.weekRevenue || 0
+      };
+      
+      console.log('📊 Business data for AI Summary:', businessData);
+      
+      const prompt = `As a business coach, provide a brief 2-3 sentence summary of this week's performance:
+      - Client visits: ${businessData.visits} visits
+      - Goals completed: ${businessData.goalsCompleted} goals
+      - Total active clients: ${businessData.totalClients}
+      - Revenue this week: $${businessData.weekRevenue}
+      
+      Focus on insights and actionable next steps.`;
+
+      console.log('📤 Sending prompt to OpenAI (GPT-4):', prompt);
+      console.log('🔧 Model: gpt-4, Max tokens: 1000, Temperature: 0.7');
+      
+      const startTime = Date.now();
+      const response = await getCompletion(prompt, 'You are a helpful business performance analyst.');
+      const duration = Date.now() - startTime;
+      
+      console.log(`✅ AI Summary generated successfully in ${duration}ms`);
+      console.log('📝 AI Response:', response);
+      
+      setAiSummary(response);
+      
+    } catch (error: any) {
+      console.error('❌ AI Summary generation failed:', error);
+      
+      // Enhanced error logging
+      console.error('📄 Error details:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        type: error.type,
+        stack: error.stack
+      });
+      
+      // Determine specific error type and provide actionable feedback
+      let errorMessage = 'Unable to generate summary';
+      
+      if (error.status === 401 || error.message.includes('API key')) {
+        errorMessage = 'Invalid OpenAI API key. Please check your API key configuration.';
+        console.error('🔑 API Key issue detected');
+      } else if (error.status === 429 || error.message.includes('rate limit')) {
+        errorMessage = 'OpenAI rate limit exceeded. Please wait a moment and try again.';
+        console.error('⏱️ Rate limit issue detected');
+      } else if (error.status === 402 || error.message.includes('quota') || error.message.includes('billing')) {
+        errorMessage = 'OpenAI account quota exceeded. Please check your billing and usage.';
+        console.error('💳 Billing/quota issue detected');
+      } else if (error.status >= 500 || error.message.includes('server')) {
+        errorMessage = 'OpenAI service temporarily unavailable. Please try again later.';
+        console.error('🌐 Server issue detected');
+      } else if (error.name === 'NetworkError' || error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network connection issue. Please check your internet connection.';
+        console.error('📡 Network issue detected');
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+        console.error('⏰ Timeout issue detected');
+      } else {
+        errorMessage = `AI service error: ${error.message}`;
+        console.error('❓ Unknown error type');
+      }
+      
+      setAiSummary(errorMessage);
+      
+    } finally {
+      setAiSummaryLoading(false);
+      console.log('🏁 AI Summary generation process completed');
+    }
+  };
+
+  // Generate Weekly Plan
+  const generateWeeklyPlan = async () => {
+    console.log('📋 Starting Weekly Plan generation...');
+    
+    if (!isOpenAIConfigured()) {
+      console.warn('⚠️ OpenAI not configured for Weekly Plan');
+      
+      // Run comprehensive environment variable test for Weekly Plan
+      const { envTestResults, recommendations } = testEnvironmentVariables();
+      console.log('🔍 Running OpenAI environment variable diagnostics for Weekly Plan...');
+      console.log('📋 Recommendations:');
+      recommendations.forEach((rec, i) => console.log(`   ${rec}`));
+      
+      Alert.alert(
+        'Configuration Required', 
+        'Please configure your OpenAI API key to use AI features. Check the console for detailed setup instructions.',
+        [
+          { text: 'OK', style: 'default' }
+        ]
+      );
+      return;
+    }
+
+    setShowWeeklyPlanModal(true);
+    
+    // Small delay to ensure modal is rendered before starting loading
+    await new Promise(resolve => setTimeout(resolve, 100));
+    setWeeklyPlanLoading(true);
+    
+    try {
+      const businessData = {
+        totalClients: stats.totalClients || 0,
+        weekRevenue: stats.weekRevenue || 0,
+        goalsCompleted: currentWeek?.goalsCompleted || 0,
+        visits: currentWeek?.visits || 0,
+        newClients: currentWeek?.newClients || 0
+      };
+      
+      console.log('📊 Business data for Weekly Plan:', businessData);
+      
+      const prompt = `Based on this week's data, create a strategic weekly plan:
+      
+      Current Status:
+      - Active clients: ${businessData.totalClients}
+      - Weekly revenue: $${businessData.weekRevenue}
+      - Completed goals: ${businessData.goalsCompleted}
+      - Client visits: ${businessData.visits}
+      - New clients this week: ${businessData.newClients}
+      
+      Create a prioritized action plan with 5-7 specific tasks for next week. Format as a numbered list with clear, actionable items.`;
+
+      console.log('📤 Sending prompt to OpenAI (GPT-4):', prompt);
+      console.log('🔧 Model: gpt-4, Max tokens: 1000, Temperature: 0.7');
+      
+      const startTime = Date.now();
+      const response = await getCompletion(prompt, 'You are an expert business strategist creating actionable weekly plans.');
+      const duration = Date.now() - startTime;
+      
+      console.log(`✅ Weekly Plan generated successfully in ${duration}ms`);
+      console.log('📝 AI Response:', response);
+      
+      setWeeklyPlan(response);
+      
+    } catch (error: any) {
+      console.error('❌ Weekly Plan generation failed:', error);
+      
+      // Enhanced error logging
+      console.error('📄 Error details:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        type: error.type,
+        stack: error.stack
+      });
+      
+      // Determine specific error type and provide actionable feedback
+      let errorMessage = 'Failed to generate weekly plan';
+      
+      if (error.status === 401 || error.message.includes('API key')) {
+        errorMessage = 'Invalid OpenAI API key. Please check your API key configuration and try again.';
+        console.error('🔑 API Key issue detected');
+      } else if (error.status === 429 || error.message.includes('rate limit')) {
+        errorMessage = 'OpenAI rate limit exceeded. Please wait a few minutes and try again.';
+        console.error('⏱️ Rate limit issue detected');
+      } else if (error.status === 402 || error.message.includes('quota') || error.message.includes('billing')) {
+        errorMessage = 'OpenAI account quota exceeded. Please check your billing and usage limits.';
+        console.error('💳 Billing/quota issue detected');
+      } else if (error.status >= 500 || error.message.includes('server')) {
+        errorMessage = 'OpenAI service temporarily unavailable. Please try again in a few minutes.';
+        console.error('🌐 Server issue detected');
+      } else if (error.name === 'NetworkError' || error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network connection issue. Please check your internet connection and try again.';
+        console.error('📡 Network issue detected');
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+        console.error('⏰ Timeout issue detected');
+      } else {
+        errorMessage = `AI service error: ${error.message}. Please try again or contact support.`;
+        console.error('❓ Unknown error type');
+      }
+      
+      setWeeklyPlan(errorMessage);
+      
+    } finally {
+      setWeeklyPlanLoading(false);
+      console.log('🏁 Weekly Plan generation process completed');
+    }
   };
 
   if (loading) {
@@ -173,7 +392,7 @@ export default function DashboardScreen() {
                   <Text className="text-3xl font-bold text-text-primary">Dashboard</Text>
                   <View className="mt-2">
                     <Text className="text-text-muted mb-1">Welcome back</Text>
-                    {(goalStreak?.currentStreak > 0 || retention?.retentionRate > 0) ? (
+                    {((goalStreak?.currentStreak ?? 0) > 0 || (retention?.retentionRate ?? 0) > 0) ? (
                       <View className="flex-row items-center gap-2 flex-wrap">
                         <CompactStreakIndicator streakData={goalStreak} />
                         <CompactRetentionIndicator retention={retention} />
@@ -235,6 +454,75 @@ export default function DashboardScreen() {
               </ScrollView>
             </View>
           )}
+
+          {/* AI Summary Section */}
+          <View className="mb-6">
+            <Card>
+              <View className="p-4">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="flex-row items-center">
+                    <Brain size={24} color="#6366F1" />
+                    <Text className="text-xl font-bold text-gray-900 ml-2">🤖 AI Summary</Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={generateAISummary}
+                    disabled={aiSummaryLoading}
+                    className="px-3 py-1 bg-indigo-100 rounded-full flex-row items-center"
+                  >
+                    {aiSummaryLoading ? (
+                      <ActivityIndicator size="small" color="#6366F1" />
+                    ) : (
+                      <Sparkles size={14} color="#6366F1" />
+                    )}
+                    <Text className="text-indigo-700 text-sm font-medium ml-1">
+                      {aiSummaryLoading ? 'Generating...' : 'Refresh'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View className="bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-lg">
+                  {aiSummaryLoading ? (
+                    <View className="flex-row items-center">
+                      <ActivityIndicator size="small" color="#6366F1" />
+                      <Text className="text-indigo-600 ml-2">Analyzing your data...</Text>
+                    </View>
+                  ) : aiSummary ? (
+                    <Text className="text-gray-700 leading-6">{aiSummary}</Text>
+                  ) : !isOpenAIConfigured() ? (
+                    <Text className="text-amber-600 text-sm">
+                      ⚠️ Configure OpenAI API key to enable AI insights
+                    </Text>
+                  ) : (
+                    <Text className="text-gray-500 italic">Tap refresh to generate AI insights</Text>
+                  )}
+                </View>
+
+                {/* Generate Weekly Plan Button */}
+                <TouchableOpacity
+                  onPress={generateWeeklyPlan}
+                  disabled={weeklyPlanLoading || !isOpenAIConfigured()}
+                  className={`mt-4 p-3 rounded-lg flex-row items-center justify-center ${
+                    isOpenAIConfigured() && !weeklyPlanLoading 
+                      ? 'bg-indigo-600' 
+                      : 'bg-gray-300'
+                  }`}
+                >
+                  {weeklyPlanLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Target size={18} color="white" />
+                  )}
+                  <Text className={`font-semibold ml-2 ${
+                    isOpenAIConfigured() && !weeklyPlanLoading 
+                      ? 'text-white' 
+                      : 'text-gray-500'
+                  }`}>
+                    {weeklyPlanLoading ? 'Generating Plan...' : 'Generate Weekly Plan'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
+          </View>
 
           {/* Phase 7: Revenue Summary */}
           <View className="mb-6">
@@ -338,7 +626,7 @@ export default function DashboardScreen() {
                   <Text className="text-3xl font-bold text-gray-900 mb-1">{stats.totalClients}</Text>
                   <Text className="text-gray-600 text-lg">Total Clients</Text>
                   <View className="flex-row space-x-3 mt-3">
-                    <StatusBadge status="active" size="xs" />
+                    <StatusBadge status="active" size="sm" />
                     <Badge variant="success" size="xs">
                       {stats.clientsByStatus.active} Active
                     </Badge>
@@ -534,6 +822,104 @@ export default function DashboardScreen() {
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
       />
+
+      {/* Weekly Plan Modal */}
+      <Modal
+        visible={showWeeklyPlanModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowWeeklyPlanModal(false)}
+      >
+        <SafeAreaView className="flex-1 bg-white">
+          <View className="flex-1">
+            {/* Modal Header */}
+            <View className="px-6 py-4 border-b border-gray-200">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Target size={24} color="#6366F1" />
+                  <Text className="text-xl font-bold text-gray-900 ml-2">Weekly Action Plan</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowWeeklyPlanModal(false)}
+                  className="p-2 bg-gray-100 rounded-full"
+                >
+                  <Ionicons name="close" size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Modal Content */}
+            <ScrollView 
+              className="flex-1 px-6 py-4"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 60 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Fixed height container to prevent scroll snapping */}
+              <View style={{ minHeight: 500 }}>
+                {weeklyPlanLoading ? (
+                  <View className="flex-1 justify-center items-center py-12">
+                    <ActivityIndicator size="large" color="#6366F1" />
+                    <Text className="text-indigo-600 mt-4 text-center">
+                      Analyzing your data and creating personalized plan...
+                    </Text>
+                    {/* Invisible spacer to maintain layout height */}
+                    <View style={{ height: 140 }} />
+                  </View>
+                ) : weeklyPlan ? (
+                  <View className="space-y-4">
+                    <View className="bg-indigo-50 p-4 rounded-lg">
+                      <Text className="text-indigo-700 font-medium mb-2">
+                        🎯 AI-Generated Strategic Plan
+                      </Text>
+                      <Text className="text-indigo-600 text-sm">
+                        Based on your current performance metrics and business goals
+                      </Text>
+                    </View>
+                    
+                    <View className="bg-white border border-gray-200 rounded-lg p-4">
+                      <Text className="text-gray-800 leading-7">{weeklyPlan}</Text>
+                    </View>
+
+                    {/* Button with extra spacing to ensure it's accessible */}
+                    <View style={{ marginTop: 24, paddingBottom: 80 }}>
+                      <TouchableOpacity
+                        onPress={generateWeeklyPlan}
+                        disabled={weeklyPlanLoading}
+                        className="bg-indigo-600 p-3 rounded-lg flex-row items-center justify-center"
+                        activeOpacity={0.8}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                        style={{ minHeight: 50 }}
+                      >
+                        <Sparkles size={18} color="white" />
+                        <Text className="text-white font-semibold ml-2">Generate New Plan</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View className="flex-1 justify-center items-center py-12">
+                    <Text className="text-red-600 text-center mb-6">
+                      Failed to generate plan. Please try again.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={generateWeeklyPlan}
+                      disabled={weeklyPlanLoading}
+                      className="bg-indigo-600 p-3 rounded-lg"
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                      style={{ minHeight: 50 }}
+                    >
+                      <Text className="text-white font-semibold">Retry</Text>
+                    </TouchableOpacity>
+                    {/* Invisible spacer to maintain layout height */}
+                    <View style={{ height: 140 }} />
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

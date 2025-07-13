@@ -21,6 +21,18 @@ export function MetricsSummary({
 }: MetricsSummaryProps) {
   const [activeTab, setActiveTab] = useState<'week' | 'month'>('week');
 
+  // Safe date formatting function to prevent crashes
+  const formatDateSafely = (date: any): string => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      return 'N/A';
+    }
+    try {
+      return date.toLocaleDateString();
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
   const handleShare = async (metrics: WeeklyMetrics | MonthlyMetrics) => {
     try {
       const summary = formatMetricsSummary(metrics);
@@ -48,7 +60,7 @@ export function MetricsSummary({
       <View className="flex-row items-center">
         <Ionicons name={icon} size={12} color={isPositive ? '#16A34A' : '#DC2626'} />
         <Text className={`text-xs ml-1 ${color}`}>
-          {value.toFixed(0)}%
+          {(value || 0).toFixed(0)}%
         </Text>
       </View>
     );
@@ -155,8 +167,8 @@ export function MetricsSummary({
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-sm text-gray-600">👥 New Clients</Text>
-              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.newClients}</Text>
-              {currentMetrics.clientNames.length > 0 && (
+              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.newClients || 0}</Text>
+              {currentMetrics.clientNames && currentMetrics.clientNames.length > 0 && (
                 <Text className="text-xs text-gray-500 mt-1" numberOfLines={1}>
                   {currentMetrics.clientNames.slice(0, 2).join(', ')}
                   {currentMetrics.clientNames.length > 2 && ` +${currentMetrics.clientNames.length - 2} more`}
@@ -174,8 +186,8 @@ export function MetricsSummary({
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-sm text-gray-600">📍 Business Visits</Text>
-              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.businessVisits}</Text>
-              {currentMetrics.visitLocations.length > 0 && (
+              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.businessVisits || 0}</Text>
+              {currentMetrics.visitLocations && currentMetrics.visitLocations.length > 0 && (
                 <Text className="text-xs text-gray-500 mt-1" numberOfLines={1}>
                   {currentMetrics.visitLocations.slice(0, 2).join(', ')}
                   {currentMetrics.visitLocations.length > 2 && ` +${currentMetrics.visitLocations.length - 2} more`}
@@ -194,12 +206,12 @@ export function MetricsSummary({
             <View className="flex-1">
               <Text className="text-sm text-gray-600">💰 Revenue</Text>
               <Text className="text-2xl font-bold text-primary">
-                ${currentMetrics.totalRevenue.toLocaleString()}
+                ${(currentMetrics.totalRevenue || 0).toLocaleString()}
               </Text>
-              {currentMetrics.paymentsReceived > 0 && (
+              {(currentMetrics.paymentsReceived || 0) > 0 && (
                 <Text className="text-xs text-gray-500 mt-1">
                   {currentMetrics.paymentsReceived} payment{currentMetrics.paymentsReceived !== 1 ? 's' : ''} • 
-                  Avg: ${currentMetrics.averagePayment.toFixed(0)}
+                  Avg: ${(currentMetrics.averagePayment || 0).toFixed(0)}
                 </Text>
               )}
             </View>
@@ -214,8 +226,8 @@ export function MetricsSummary({
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-sm text-gray-600">🎯 Goals Completed</Text>
-              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.goalsCompleted}</Text>
-              {currentMetrics.goalTitles.length > 0 && (
+              <Text className="text-2xl font-bold text-gray-900">{currentMetrics.goalsCompleted || 0}</Text>
+              {currentMetrics.goalTitles && currentMetrics.goalTitles.length > 0 && (
                 <Text className="text-xs text-gray-500 mt-1" numberOfLines={1}>
                   {currentMetrics.goalTitles.slice(0, 2).join(', ')}
                   {currentMetrics.goalTitles.length > 2 && ` +${currentMetrics.goalTitles.length - 2} more`}
@@ -234,8 +246,8 @@ export function MetricsSummary({
         <View className="mt-4 pt-4 border-t border-gray-100">
           <Text className="text-xs text-gray-500 text-center">
             {activeTab === 'week' 
-              ? `${(currentMetrics as any).weekStart?.toLocaleDateString()} - ${(currentMetrics as any).weekEnd?.toLocaleDateString()}`
-              : `${(currentMetrics as any).monthStart?.toLocaleDateString()} - ${(currentMetrics as any).monthEnd?.toLocaleDateString()}`
+              ? `${formatDateSafely((currentMetrics as any)?.weekStart)} - ${formatDateSafely((currentMetrics as any)?.weekEnd)}`
+              : `${formatDateSafely((currentMetrics as any)?.monthStart)} - ${formatDateSafely((currentMetrics as any)?.monthEnd)}`
             }
           </Text>
         </View>
@@ -274,7 +286,7 @@ export function QuickSummaryCard({
         <View className="flex-1">
           <Text className="text-sm text-gray-600 mb-1">{title}</Text>
           <Text className={`text-2xl font-bold ${colorClasses[color]}`}>
-            {typeof value === 'number' ? value.toLocaleString() : value}
+            {typeof value === 'number' ? (value || 0).toLocaleString() : value}
           </Text>
           {subtitle && (
             <Text className="text-xs text-gray-500 mt-1">{subtitle}</Text>
@@ -290,7 +302,7 @@ export function QuickSummaryCard({
                 color={change.isPositive ? '#16A34A' : '#DC2626'} 
               />
               <Text className={`text-xs ml-1 ${change.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {change.value.toFixed(0)}%
+                {(change.value || 0).toFixed(0)}%
               </Text>
             </View>
           )}

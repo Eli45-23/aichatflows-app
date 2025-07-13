@@ -171,15 +171,27 @@ export default function InPersonScreen() {
 
   const handleConvertToClient = async (submission: InPersonSubmission) => {
     try {
+      console.log('🔄 Starting client conversion for submission:', submission.id);
+      console.log('📝 Submission form data:', submission.form_data);
+      
       setSubmitting(true);
       
-      // Create the client
+      // Validate submission data before conversion
+      if (!submission.form_data.name || !submission.form_data.email) {
+        throw new Error('Missing required fields: name and email are required');
+      }
+      
+      // Create the client with comprehensive data
       const clientData = {
         ...submission.form_data,
         signed_in_person: true // Ensure in-person flag is set
       };
       
+      console.log('📤 Sending client data to createClient:', clientData);
+      
       const newClientResponse = await createClient(clientData);
+      
+      console.log('✅ Client creation response:', newClientResponse);
       
       if (newClientResponse) {
         // Mark submission as converted
@@ -188,24 +200,65 @@ export default function InPersonScreen() {
             ? { ...sub, converted_to_client: true, client_id: newClientResponse.id }
             : sub
         );
-        saveInPersonSubmissions(updatedSubmissions);
+        await saveInPersonSubmissions(updatedSubmissions);
+        
+        console.log('📊 Updated in-person submissions after conversion');
         
         // Log the client creation from in-person signup
-        logClientCreated(
-          newClientResponse.id,
-          submission.form_data.name,
-          submission.form_data.plan || 'starter',
-          true // This is from in-person signup
-        );
+        try {
+          logClientCreated(
+            newClientResponse.id,
+            submission.form_data.name,
+            submission.form_data.plan || 'starter',
+            true // This is from in-person signup
+          );
+          console.log('📈 Activity log entry created successfully');
+        } catch (logError) {
+          console.warn('⚠️ Failed to create activity log entry:', logError);
+          // Don't fail conversion for logging issues
+        }
         
         Alert.alert(
           '🎉 Client Created!',
-          `${submission.form_data.name} has been added to your client database.`,
+          `${submission.form_data.name} has been successfully added to your client database with all form data preserved.`,
           [{ text: 'Great!' }]
         );
+        
+        console.log('✅ Client conversion completed successfully for:', submission.form_data.name);
+      } else {
+        throw new Error('Client creation returned no data');
       }
     } catch (error: any) {
-      Alert.alert('Error', `Failed to create client: ${error.message}`);
+      console.error('❌ Client conversion failed:', error);
+      console.error('📄 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        submissionId: submission.id,
+        submissionData: submission.form_data
+      });
+      
+      // Provide more specific error messages based on error type
+      let errorMessage = 'Failed to create client';
+      if (error.message.includes('required')) {
+        errorMessage = 'Missing required information. Please check that name and email are provided.';
+      } else if (error.message.includes('email')) {
+        errorMessage = 'Invalid email format. Please check the email address.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('database') || error.message.includes('supabase')) {
+        errorMessage = 'Database error. Please try again or contact support.';
+      } else {
+        errorMessage = `Failed to create client: ${error.message}`;
+      }
+      
+      Alert.alert(
+        'Conversion Failed',
+        errorMessage,
+        [
+          { text: 'Try Again', onPress: () => handleConvertToClient(submission) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     } finally {
       setSubmitting(false);
     }

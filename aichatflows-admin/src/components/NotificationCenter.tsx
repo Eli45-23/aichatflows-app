@@ -34,6 +34,7 @@ export function NotificationCenter({ visible, onClose }: NotificationCenterProps
     unreadCount,
     loading,
     refreshing,
+    error,
     refresh,
     markAsRead,
     markAllAsRead,
@@ -139,6 +140,19 @@ export function NotificationCenter({ visible, onClose }: NotificationCenterProps
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#00D4AA" />
+          </View>
+        ) : error ? (
+          <View className="flex-1 px-page py-8">
+            <EmptyState
+              icon="warning"
+              title="Unable to load notifications"
+              description={error}
+              action={{
+                label: "Try Again",
+                onPress: refresh,
+                icon: "refresh"
+              }}
+            />
           </View>
         ) : Object.keys(groupedNotifications).length === 0 ? (
           <View className="flex-1 px-page py-8">

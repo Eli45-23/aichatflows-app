@@ -73,23 +73,64 @@ export function useClients() {
   // Create new client
   const createClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      debugLog('Creating client in new schema...', clientData);
+      debugLog('Creating client with comprehensive data...', clientData);
 
       // Validate required fields
       if (!clientData.name || !clientData.email) {
         throw new Error('Name and email are required fields');
       }
 
-      // Prepare client data with timestamps
+      // Prepare comprehensive client data with timestamps
       const now = new Date().toISOString();
       const newClientData = {
+        // Basic required fields
         name: clientData.name.trim(),
         email: clientData.email.trim().toLowerCase(),
         phone: clientData.phone?.trim() || '',
         status: clientData.status || 'active' as Client['status'],
-        // notes and updated_at fields don't exist in new schema
         created_at: now,
+        
+        // Social media handles
+        instagram_handle: clientData.instagram_handle?.trim() || null,
+        facebook_url: clientData.facebook_url?.trim() || null,
+        tiktok_handle: clientData.tiktok_handle?.trim() || null,
+        
+        // Business preferences
+        delivery_preference: clientData.delivery_preference || null,
+        platform_preference: clientData.platform_preference || null,
+        plan: clientData.plan || null,
+        payment_status: clientData.payment_status || 'unpaid',
+        signed_in_person: clientData.signed_in_person || false,
+        payment_method: clientData.payment_method?.trim() || null,
+        notes: clientData.notes?.trim() || null,
+        
+        // Comprehensive business details
+        business_name: clientData.business_name?.trim() || null,
+        other_platforms: clientData.other_platforms?.trim() || null,
+        business_type: clientData.business_type?.trim() || null,
+        business_niche: clientData.business_niche?.trim() || null,
+        common_customer_question: clientData.common_customer_question?.trim() || null,
+        products_or_services: clientData.products_or_services?.trim() || null,
+        has_faqs: clientData.has_faqs || false,
+        faq_location: clientData.faq_location?.trim() || null,
+        consent_to_share: clientData.consent_to_share || false,
+        
+        // Login credentials (if provided)
+        instagram_password: clientData.instagram_password?.trim() || null,
+        facebook_password: clientData.facebook_password?.trim() || null,
+        tiktok_password: clientData.tiktok_password?.trim() || null,
+        
+        // Delivery details
+        delivery_method: clientData.delivery_method?.trim() || null,
+        delivery_notes: clientData.delivery_notes?.trim() || null,
+        pickup_method: clientData.pickup_method?.trim() || null,
+        pickup_notes: clientData.pickup_notes?.trim() || null,
+        
+        // Photo upload
+        photo_url: clientData.photo_url?.trim() || null,
       };
+
+      debugLog('Prepared client data for insertion:', newClientData);
 
       const { data, error } = await supabase
         .from('clients')
@@ -100,15 +141,82 @@ export function useClients() {
           email,
           phone,
           status,
-          created_at
+          created_at,
+          instagram_handle,
+          facebook_url,
+          tiktok_handle,
+          delivery_preference,
+          platform_preference,
+          plan,
+          payment_status,
+          signed_in_person,
+          payment_method,
+          notes,
+          business_name,
+          other_platforms,
+          business_type,
+          business_niche,
+          common_customer_question,
+          products_or_services,
+          has_faqs,
+          faq_location,
+          consent_to_share,
+          instagram_password,
+          facebook_password,
+          tiktok_password,
+          delivery_method,
+          delivery_notes,
+          pickup_method,
+          pickup_notes,
+          photo_url
         `)
         .single();
 
       if (error) {
+        console.error('🚨 Client Creation Error:', error);
         debugLog('Error creating client:', error);
+        
+        // Handle specific schema-related errors
+        if (error.message.includes('column') && error.message.includes('does not exist')) {
+          const columnMatch = error.message.match(/'([^']+)'/);
+          const missingColumn = columnMatch ? columnMatch[1] : 'unknown column';
+          
+          console.warn(`🚨 Database Schema Error: Missing column '${missingColumn}' in clients table`);
+          console.warn(`💡 Solution: Run the database migration at: migrations/02_add_missing_client_columns.sql`);
+          console.warn(`🔄 After running migration, execute: NOTIFY pgrst, 'reload schema';`);
+          
+          throw new Error(`Database schema is missing the '${missingColumn}' column. Please run the database migration to add missing columns.`);
+        }
+        
+        // Handle other potential schema cache issues
+        if (error.message.includes('schema cache') || error.code === '42P01') {
+          console.warn(`🚨 Schema Cache Error: ${error.message}`);
+          console.warn(`🔄 Solution: Run 'NOTIFY pgrst, 'reload schema';' in your Supabase SQL editor`);
+          
+          throw new Error('Database schema cache needs to be refreshed. Please reload the schema cache and try again.');
+        }
+        
         throw error;
       }
 
+      // Handle case where no error but data is null/undefined
+      if (!data) {
+        console.error('🚨 Client Creation Failed: No data returned from insert operation');
+        console.error('📊 Insert operation completed without error but returned no data');
+        console.error('🔍 This could indicate:');
+        console.error('   1. Row Level Security (RLS) policies blocking the insert');
+        console.error('   2. Database triggers or constraints preventing insertion');
+        console.error('   3. Supabase client configuration issues');
+        console.error('💡 Check your Supabase RLS policies for the clients table');
+        
+        throw new Error('Client creation returned no data. This may be due to database permissions or Row Level Security policies. Please check your Supabase configuration.');
+      }
+
+      console.log('✅ Client created successfully:', {
+        id: data.id,
+        name: data.name,
+        email: data.email
+      });
       debugLog('Client created successfully in new schema:', data);
       
       // Optimistic update to local state
@@ -126,8 +234,29 @@ export function useClients() {
       
       return data;
     } catch (error: any) {
+      console.error('❌ Client Creation Exception:', error);
       debugLog('Exception creating client:', error);
-      Alert.alert('Error', `Failed to create client: ${error.message}`);
+      
+      // Provide specific error messages based on error type
+      let userMessage = 'Failed to create client';
+      let consoleMessage = `Failed to create client: ${error.message}`;
+      
+      if (error.message.includes('schema') || error.message.includes('column')) {
+        userMessage = 'Database schema error. Please check migration status.';
+        consoleMessage = 'Database schema issue detected. Check console for migration instructions.';
+      } else if (error.message.includes('permission') || error.message.includes('RLS') || error.message.includes('policy')) {
+        userMessage = 'Permission denied. Please check database access rights.';
+        consoleMessage = 'Database permission issue. Check RLS policies and authentication.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network error. Please check your connection.';
+        consoleMessage = 'Network connectivity issue detected.';
+      } else if (error.message.includes('validation') || error.message.includes('required')) {
+        userMessage = 'Invalid data provided. Please check all required fields.';
+        consoleMessage = 'Data validation failed. Check required fields and data types.';
+      }
+      
+      console.error(`🔍 Error Analysis: ${consoleMessage}`);
+      Alert.alert('Error', userMessage);
       throw error;
     }
   };

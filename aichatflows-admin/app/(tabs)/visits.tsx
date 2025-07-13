@@ -401,114 +401,117 @@ export default function VisitsScreen() {
   const filteredVisits = filteredAndSortedVisits;
   const stats = getVisitStats();
 
-  return (
-    <SafeAreaView className="flex-1 bg-bg-secondary">
-      <View className="px-page py-section">
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-8 animate-enter">
-          <View>
-            <Text className="text-3xl font-bold text-text-primary">
-              Business Visits
-            </Text>
-            <Text className="text-text-muted mt-1">{filteredVisits.length} visits tracked</Text>
-            <View className="flex-row space-x-4 mt-2">
-              <View className="status-info px-3 py-1 rounded-full">
-                <Text className="text-xs font-medium">{stats.total} total</Text>
-              </View>
-              <View className="status-success px-3 py-1 rounded-full">
-                <Text className="text-xs font-medium">{stats.recent} recent</Text>
-              </View>
+  const renderHeader = () => (
+    <View className="px-page py-section">
+      {/* Header */}
+      <View className="flex-row items-center justify-between mb-8 animate-enter">
+        <View>
+          <Text className="text-3xl font-bold text-text-primary">
+            Business Visits
+          </Text>
+          <Text className="text-text-muted mt-1">{filteredVisits.length} visits tracked</Text>
+          <View className="flex-row space-x-4 mt-2">
+            <View className="status-info px-3 py-1 rounded-full">
+              <Text className="text-xs font-medium">{stats.total} total</Text>
+            </View>
+            <View className="status-success px-3 py-1 rounded-full">
+              <Text className="text-xs font-medium">{stats.recent} recent</Text>
             </View>
           </View>
-          <TouchableOpacity
-            className={`flex-row items-center ${
-              isMarkingVisit ? 'bg-gray-100 border border-gray-300 rounded-button p-3' : 'btn-primary'
-            }`}
-            onPress={handleOpenCreateModal}
-            disabled={isMarkingVisit}
-          >
-            {isMarkingVisit ? (
-              <ActivityIndicator size="small" color="#00D4AA" />
-            ) : (
-              <Plus size={20} color="white" />
-            )}
-            <Text className={`font-semibold ml-2 ${
-              isMarkingVisit ? 'text-text-accent' : 'text-white'
-            }`}>
-              {isMarkingVisit ? 'Creating...' : 'Mark Visit'}
-            </Text>
-          </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          className={`flex-row items-center ${
+            isMarkingVisit ? 'bg-gray-100 border border-gray-300 rounded-button p-3' : 'btn-primary'
+          }`}
+          onPress={handleOpenCreateModal}
+          disabled={isMarkingVisit}
+        >
+          {isMarkingVisit ? (
+            <ActivityIndicator size="small" color="#00D4AA" />
+          ) : (
+            <Plus size={20} color="white" />
+          )}
+          <Text className={`font-semibold ml-2 ${
+            isMarkingVisit ? 'text-text-accent' : 'text-white'
+          }`}>
+            {isMarkingVisit ? 'Creating...' : 'Mark Visit'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Stats Cards */}
-        {visits.length > 0 && (
-          <View className="flex-row gap-4 mb-6">
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-gray-900">{stats.total}</Text>
-              <Text className="text-gray-600 text-sm">Total Visits</Text>
-            </View>
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-green-600">{stats.recent}</Text>
-              <Text className="text-gray-600 text-sm">Recent</Text>
-            </View>
-            <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
-              <Text className="text-xl font-bold text-blue-600">{clients.length}</Text>
-              <Text className="text-gray-600 text-sm">Clients</Text>
-            </View>
+      {/* Stats Cards */}
+      {visits.length > 0 && (
+        <View className="flex-row gap-4 mb-6">
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-gray-900">{stats.total}</Text>
+            <Text className="text-gray-600 text-sm">Total Visits</Text>
           </View>
-        )}
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-green-600">{stats.recent}</Text>
+            <Text className="text-gray-600 text-sm">Recent</Text>
+          </View>
+          <View className="bg-white rounded-xl p-4 shadow-sm flex-1">
+            <Text className="text-xl font-bold text-blue-600">{clients.length}</Text>
+            <Text className="text-gray-600 text-sm">Clients</Text>
+          </View>
+        </View>
+      )}
 
-        {/* Enhanced Search Bar with Filters and Sort */}
-        <View className="mb-6 gap-4">
-          {/* Search Input with Sort */}
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1">
-              <SearchInput
-                placeholder="Search visits by location, business name..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-              />
-            </View>
-            
-            <SortDropdown
-              options={VISIT_SORT_OPTIONS}
-              selectedSort={selectedSort}
-              onSortChange={setSelectedSort}
-              placeholder="Sort"
-              className="min-w-[120px] max-w-[140px]"
+      {/* Enhanced Search Bar with Filters and Sort */}
+      <View className="mb-6 gap-4">
+        {/* Search Input with Sort */}
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <SearchInput
+              placeholder="Search visits by location, business name..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
             />
           </View>
           
-          {/* Filter Bar */}
-          <FilterBar
-            filterGroups={VISIT_FILTER_GROUPS}
-            selectedFilters={selectedFilters}
-            onFilterChange={(groupId, values) => {
-              setSelectedFilters(prev => ({
-                ...prev,
-                [groupId]: values
-              }));
-            }}
-            onClearAll={() => setSelectedFilters({})}
+          <SortDropdown
+            options={VISIT_SORT_OPTIONS}
+            selectedSort={selectedSort}
+            onSortChange={setSelectedSort}
+            placeholder="Sort"
+            className="min-w-[120px] max-w-[140px]"
           />
         </View>
+        
+        {/* Filter Bar */}
+        <FilterBar
+          filterGroups={VISIT_FILTER_GROUPS}
+          selectedFilters={selectedFilters}
+          onFilterChange={(groupId, values) => {
+            setSelectedFilters(prev => ({
+              ...prev,
+              [groupId]: values
+            }));
+          }}
+          onClearAll={() => setSelectedFilters({})}
+        />
+      </View>
+    </View>
+  );
 
-        {/* Visits List */}
-        <FlatList
-          data={filteredVisits}
-          renderItem={renderVisit}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#00D4AA']}
-              tintColor="#00D4AA"
-            />
-          }
+  return (
+    <SafeAreaView className="flex-1 bg-bg-secondary">
+      <FlatList
+        data={filteredVisits}
+        renderItem={renderVisit}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#00D4AA']}
+            tintColor="#00D4AA"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center py-12">
               <Ionicons 
@@ -830,7 +833,6 @@ export default function VisitsScreen() {
           destructive={true}
           icon="trash"
         />
-      </View>
     </SafeAreaView>
   );
 }

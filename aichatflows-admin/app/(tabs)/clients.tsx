@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Users, Search, X, Edit, Trash2, User, Mail, Phone, Camera } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -645,109 +645,112 @@ export default function ClientsScreen() {
     );
   }
 
-  return (
-    <SafeAreaView className="flex-1 bg-bg-secondary">
-      <View className="px-page py-section">
-        {/* Header with Stats */}
-        <View className="flex-row items-center justify-between mb-8">
-          <View>
-            <Text className="text-3xl font-bold text-text-primary">Clients</Text>
-            <Text className="text-text-muted mt-1">{filteredClients.length} clients managed</Text>
-          </View>
-          <TouchableOpacity
-            className="btn-primary flex-row items-center"
-            onPress={handleOpenAddModal}
-          >
-            <Plus size={20} color="white" />
-            <Text className="text-white font-semibold ml-2">Add Client</Text>
-          </TouchableOpacity>
+  const renderHeader = () => (
+    <View className="px-page py-section">
+      {/* Header with Stats */}
+      <View className="flex-row items-center justify-between mb-8">
+        <View>
+          <Text className="text-3xl font-bold text-text-primary">Clients</Text>
+          <Text className="text-text-muted mt-1">{filteredClients.length} clients managed</Text>
         </View>
-        {/* Client Stats */}
-        <View className="flex-row gap-4 mb-6">
-          <View className="card-primary flex-1 p-4">
-            <Text className="text-xl font-bold text-success">
-              {clientStats.active}
-            </Text>
-            <Text className="text-text-muted text-sm">Active</Text>
-          </View>
-          <View className="card-primary flex-1 p-4">
-            <Text className="text-xl font-bold text-warning">
-              {clientStats.inProgress}
-            </Text>
-            <Text className="text-text-muted text-sm">In Progress</Text>
-          </View>
-          <View className="card-primary flex-1 p-4">
-            <Text className="text-xl font-bold text-text-muted">
-              {clientStats.other}
-            </Text>
-            <Text className="text-text-muted text-sm">Other</Text>
-          </View>
+        <TouchableOpacity
+          className="btn-primary flex-row items-center"
+          onPress={handleOpenAddModal}
+        >
+          <Plus size={20} color="white" />
+          <Text className="text-white font-semibold ml-2">Add Client</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Client Stats */}
+      <View className="flex-row gap-4 mb-6">
+        <View className="card-primary flex-1 p-4">
+          <Text className="text-xl font-bold text-success">
+            {clientStats.active}
+          </Text>
+          <Text className="text-text-muted text-sm">Active</Text>
         </View>
+        <View className="card-primary flex-1 p-4">
+          <Text className="text-xl font-bold text-warning">
+            {clientStats.inProgress}
+          </Text>
+          <Text className="text-text-muted text-sm">In Progress</Text>
+        </View>
+        <View className="card-primary flex-1 p-4">
+          <Text className="text-xl font-bold text-text-muted">
+            {clientStats.other}
+          </Text>
+          <Text className="text-text-muted text-sm">Other</Text>
+        </View>
+      </View>
 
-        {/* Client Retention Analytics */}
-        <RetentionAnalytics
-          retention={retention}
-          loading={false}
-          onClientPress={(clientName) => {
-            Alert.alert(
-              'Client Details',
-              `View details for ${clientName}? This feature will be available in future updates.`,
-              [{ text: 'OK' }]
-            );
-          }}
-        />
+      {/* Client Retention Analytics */}
+      <RetentionAnalytics
+        retention={retention}
+        loading={false}
+        onClientPress={(clientName) => {
+          Alert.alert(
+            'Client Details',
+            `View details for ${clientName}? This feature will be available in future updates.`,
+            [{ text: 'OK' }]
+          );
+        }}
+      />
 
-        {/* Enhanced Search Bar with Filters and Sort */}
-        <View className="mb-6 gap-4">
-          {/* Search Input with Sort */}
-          <View className="flex-row items-center gap-3">
-            <View className="flex-1">
-              <SearchInput
-                placeholder="Search by name, email, business name, phone..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-              />
-            </View>
-            
-            <SortDropdown
-              options={CLIENT_SORT_OPTIONS}
-              selectedSort={selectedSort}
-              onSortChange={setSelectedSort}
-              placeholder="Sort"
-              className="min-w-[120px] max-w-[140px]"
+      {/* Enhanced Search Bar with Filters and Sort */}
+      <View className="mb-6 gap-4">
+        {/* Search Input with Sort */}
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <SearchInput
+              placeholder="Search by name, email, business name, phone..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
             />
           </View>
           
-          {/* Filter Bar */}
-          <FilterBar
-            filterGroups={CLIENT_FILTER_GROUPS}
-            selectedFilters={selectedFilters}
-            onFilterChange={(groupId, values) => {
-              setSelectedFilters(prev => ({
-                ...prev,
-                [groupId]: values
-              }));
-            }}
-            onClearAll={() => setSelectedFilters({})}
+          <SortDropdown
+            options={CLIENT_SORT_OPTIONS}
+            selectedSort={selectedSort}
+            onSortChange={setSelectedSort}
+            placeholder="Sort"
+            className="min-w-[120px] max-w-[140px]"
           />
         </View>
+        
+        {/* Filter Bar */}
+        <FilterBar
+          filterGroups={CLIENT_FILTER_GROUPS}
+          selectedFilters={selectedFilters}
+          onFilterChange={(groupId, values) => {
+            setSelectedFilters(prev => ({
+              ...prev,
+              [groupId]: values
+            }));
+          }}
+          onClearAll={() => setSelectedFilters({})}
+        />
+      </View>
+    </View>
+  );
 
-        {/* Client List */}
-        <FlatList
-          data={filteredClients}
-          renderItem={renderClient}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#00D4AA']}
-              tintColor="#00D4AA"
-            />
-          }
+  return (
+    <SafeAreaView className="flex-1 bg-bg-secondary">
+      <FlatList
+        data={filteredClients}
+        renderItem={renderClient}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#00D4AA']}
+            tintColor="#00D4AA"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center py-16">
               <View className="bg-gray-50 p-6 rounded-card mb-6">
@@ -1498,7 +1501,6 @@ export default function ClientsScreen() {
           destructive={true}
           icon="trash"
         />
-      </View>
     </SafeAreaView>
   );
 }

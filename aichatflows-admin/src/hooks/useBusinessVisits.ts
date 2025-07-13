@@ -56,9 +56,16 @@ export function useBusinessVisits() {
         throw error;
       }
 
-      debugLog('Visits fetched successfully from new schema:', data?.length);
-      updateState({ visits: data || [], loading: false });
-      return data || [];
+      // Filter out null visits and ensure all required properties exist
+      const validVisits = (data || []).filter(visit => 
+        visit && 
+        visit.id && 
+        typeof visit.id === 'string'
+      );
+      
+      debugLog('Visits fetched successfully from new schema:', validVisits.length);
+      updateState({ visits: validVisits, loading: false });
+      return validVisits;
     } catch (error: any) {
       debugLog('Exception fetching visits:', error);
       const errorMessage = error.message;
@@ -225,8 +232,10 @@ export function useBusinessVisits() {
 
       debugLog('Visit marked successfully in new schema:', data);
       
-      // Optimistic update to local state
-      updateState({ visits: [data, ...visits] });
+      // Optimistic update to local state with null check
+      if (data && data.id) {
+        updateState({ visits: [data, ...visits] });
+      }
       
       // Trigger notification
       if (user?.id) {
@@ -266,8 +275,8 @@ export function useBusinessVisits() {
     try {
       debugLog('Updating visit in new schema...', { id, updates });
 
-      // Validate visit exists
-      const existingVisit = visits.find(v => v.id === id);
+      // Validate visit exists with null check
+      const existingVisit = visits.find(v => v && v.id === id);
       if (!existingVisit) {
         throw new Error('Visit not found');
       }
@@ -314,10 +323,12 @@ export function useBusinessVisits() {
 
       debugLog('Visit updated successfully in new schema:', data);
       
-      // Update local state
-      updateState({ 
-        visits: visits.map(visit => visit.id === id ? data : visit)
-      });
+      // Update local state with null check
+      if (data && data.id) {
+        updateState({ 
+          visits: visits.map(visit => visit.id === id ? data : visit)
+        });
+      }
       
       return data;
     } catch (error: any) {
@@ -332,8 +343,8 @@ export function useBusinessVisits() {
     try {
       debugLog('Deleting visit from new schema...', id);
 
-      // Validate visit exists
-      const existingVisit = visits.find(v => v.id === id);
+      // Validate visit exists with null check
+      const existingVisit = visits.find(v => v && v.id === id);
       if (!existingVisit) {
         throw new Error('Visit not found');
       }
@@ -350,9 +361,9 @@ export function useBusinessVisits() {
 
       debugLog('Visit deleted successfully from new schema');
       
-      // Remove from local state
+      // Remove from local state with null check
       updateState({ 
-        visits: visits.filter(visit => visit.id !== id)
+        visits: visits.filter(visit => visit && visit.id !== id)
       });
       
     } catch (error: any) {
@@ -404,7 +415,8 @@ export function useBusinessVisits() {
     
     const lowercaseQuery = query.toLowerCase();
     return visits.filter(visit => {
-      // business_name and notes fields don't exist in new schema
+      // Null check and business_name and notes fields don't exist in new schema
+      if (!visit) return false;
       const location = visit.location ? visit.location.toLowerCase() : '';
       return location.includes(lowercaseQuery);
     });
