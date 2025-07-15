@@ -19,7 +19,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Error boundary for navigation issues
+// Enhanced error boundary for navigation issues
 class NavigationErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean }
@@ -30,11 +30,22 @@ class NavigationErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError() {
+    console.log("🔴 NavigationErrorBoundary: Error detected, returning error state");
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Navigation Error:', error, errorInfo);
+    // Safe logging to prevent TurboModule crashes
+    try {
+      console.error('🔴 NavigationErrorBoundary: Navigation Error caught');
+      console.error('🔴 NavigationErrorBoundary: Error name:', error.name || 'Unknown');
+      console.error('🔴 NavigationErrorBoundary: Error message:', error.message || 'No message');
+      console.error('🔴 NavigationErrorBoundary: Has stack trace:', !!error.stack);
+      console.error('🔴 NavigationErrorBoundary: Has component stack:', !!errorInfo.componentStack);
+    } catch (logError) {
+      // Fallback if even simple logging fails
+      console.error('🔴 NavigationErrorBoundary: Error logging failed');
+    }
   }
 
   render() {
@@ -71,7 +82,19 @@ class NavigationErrorBoundary extends React.Component<
 }
 
 export default function RootLayout() {
+  console.log("🟢 RootLayout: Component rendering...");
+  console.log("🔧 RootLayout: React and imports loaded successfully");
+  
+  // Early return with simple text for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log("🔧 Debug mode: Rendering simple component");
+  }
+  
+  console.log("🔧 RootLayout: About to initialize state...");
+  
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  
+  console.log("🔧 RootLayout: State initialized, navigation ready:", isNavigationReady);
 
   useEffect(() => {
     console.log('🚀 RootLayout: Initializing app...');
@@ -138,7 +161,17 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary onError={(error, errorInfo) => {
-      console.error('Global Error Boundary:', error, errorInfo);
+      // Safe logging to prevent TurboModule crashes
+      try {
+        console.error('🔴 Global Error Boundary: Error caught in root layout');
+        console.error('🔴 Global Error Boundary: Error name:', error.name || 'Unknown');
+        console.error('🔴 Global Error Boundary: Error message:', error.message || 'No message');
+        console.error('🔴 Global Error Boundary: Has stack trace:', !!error.stack);
+        console.error('🔴 Global Error Boundary: Has component stack:', !!errorInfo.componentStack);
+      } catch (logError) {
+        // Fallback if even simple logging fails
+        console.error('🔴 Global Error Boundary: Error logging failed');
+      }
     }}>
       <NavigationErrorBoundary>
         <GestureHandlerRootView style={{ flex: 1 }}>

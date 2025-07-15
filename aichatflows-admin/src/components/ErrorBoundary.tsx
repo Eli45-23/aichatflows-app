@@ -28,11 +28,24 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     this.setState({ error, errorInfo });
     
-    console.error('Error Boundary caught an error:', error);
-    console.error('Error Info:', errorInfo);
+    // Safe logging to prevent TurboModule crashes
+    try {
+      console.error('🔴 Error Boundary: Error caught');
+      console.error('🔴 Error Boundary: Error name:', error.name || 'Unknown');
+      console.error('🔴 Error Boundary: Error message:', error.message || 'No message');
+      console.error('🔴 Error Boundary: Has stack trace:', !!error.stack);
+      console.error('🔴 Error Boundary: Has component stack:', !!errorInfo.componentStack);
+    } catch (logError) {
+      // Fallback if even simple logging fails
+      console.error('🔴 Error Boundary: Error logging failed');
+    }
     
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      try {
+        this.props.onError(error, errorInfo);
+      } catch (onErrorError) {
+        console.error('🔴 Error Boundary: onError callback failed');
+      }
     }
   }
 
@@ -159,9 +172,18 @@ export function NotFound({
 // Hook version for functional components
 export function useErrorHandler() {
   const handleError = React.useCallback((error: Error, errorInfo?: any) => {
-    console.error('Handled error:', error);
-    if (errorInfo) {
-      console.error('Error info:', errorInfo);
+    // Safe logging to prevent TurboModule crashes
+    try {
+      console.error('🔴 useErrorHandler: Error handled');
+      console.error('🔴 useErrorHandler: Error name:', error.name || 'Unknown');
+      console.error('🔴 useErrorHandler: Error message:', error.message || 'No message');
+      console.error('🔴 useErrorHandler: Has stack trace:', !!error.stack);
+      if (errorInfo) {
+        console.error('🔴 useErrorHandler: Has error info:', !!errorInfo);
+      }
+    } catch (logError) {
+      // Fallback if even simple logging fails
+      console.error('🔴 useErrorHandler: Error logging failed');
     }
   }, []);
 
