@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Alert } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { initializePushNotifications, removePushToken } from '../utils/pushTokens';
 
-const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+const debugMode = Constants.expoConfig?.extra?.debugMode;
 
 const debugLog = (message: string, data?: any) => {
   if (debugMode) {

@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Alert } from 'react-native';
+import Constants from 'expo-constants';
 
-// Environment variable validation and debugging
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+// Environment variable validation and debugging - using Expo Constants
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+const debugMode = Constants.expoConfig?.extra?.debugMode;
 
 // Debug logging function
 const debugLog = (message: string, data?: any) => {

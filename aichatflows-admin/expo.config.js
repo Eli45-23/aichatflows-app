@@ -1,0 +1,83 @@
+import 'dotenv/config';
+
+export default {
+  expo: {
+    name: "AIChatFlows Admin",
+    slug: "aichatflows-admin",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    scheme: "aichatflows",
+    newArchEnabled: true,
+    primaryColor: "#00D4AA",
+    platforms: [
+      "ios"
+    ],
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    ios: {
+      supportsTablet: false,
+      requireFullScreen: true,
+      bundleIdentifier: "com.aichatflows.admin",
+      buildNumber: "5",
+      config: {
+        usesNonExemptEncryption: false
+      },
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "This app needs access to location to track business visits.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "This app needs access to location to track business visits.",
+        NSCameraUsageDescription: "This app needs access to camera to take photos of client businesses.",
+        NSPhotoLibraryUsageDescription: "This app needs access to photo library to select photos of client businesses.",
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: false,
+          NSExceptionDomains: {
+            "supabase.co": {
+              NSExceptionAllowsInsecureHTTPLoads: false,
+              NSExceptionMinimumTLSVersion: "TLSv1.2",
+              NSIncludesSubdomains: true
+            }
+          }
+        }
+      }
+    },
+    plugins: [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/notification-icon.png",
+          color: "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "Allow AIChatFlows Admin to use your location to track business visits."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Allow AIChatFlows Admin to access photos to select business images.",
+          cameraPermission: "Allow AIChatFlows Admin to access camera to take business photos."
+        }
+      ]
+    ],
+    extra: {
+      router: {},
+      eas: {
+        projectId: "5330ae93-056c-46ee-9fc3-1ce2764734ee"
+      },
+      // Environment variables exposed to the app
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      debugMode: process.env.EXPO_PUBLIC_DEBUG_MODE === 'true',
+      openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+    },
+    owner: "eli4523"
+  }
+};

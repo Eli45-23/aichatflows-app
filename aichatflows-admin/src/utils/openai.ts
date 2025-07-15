@@ -7,13 +7,15 @@
  * 3. Restart: npx expo start
  */
 
+import Constants from 'expo-constants';
+
+// Access the OpenAI API key from environment variables via Expo Constants
+const OPENAI_API_KEY = Constants.expoConfig?.extra?.openaiApiKey;
+
 // 🔍 RUNTIME VERIFICATION: API key loading status (without exposing the key)
 if (__DEV__) {
-  console.log("🔍 API KEY STATUS:", process.env.EXPO_PUBLIC_OPENAI_API_KEY ? 'LOADED' : 'NOT_FOUND');
+  console.log("🔍 API KEY STATUS:", OPENAI_API_KEY ? 'LOADED' : 'NOT_FOUND');
 }
-
-// Access the OpenAI API key from environment variables
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
 /**
  * Check if a key is a placeholder/example value
@@ -59,7 +61,7 @@ const isPlaceholderKey = (key: string | undefined): boolean => {
 if (__DEV__) {
   const timestamp = new Date().toLocaleTimeString();
   const envVarName = 'EXPO_PUBLIC_OPENAI_API_KEY';
-  const actualValue = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const actualValue = OPENAI_API_KEY;
   
   console.log(`\n🔧 [${timestamp}] OpenAI Debug Report:`);
   console.log('='.repeat(50));
@@ -154,10 +156,10 @@ export const testEnvironmentVariables = (): {
     nodeEnv: process.env.NODE_ENV,
     expoDev: __DEV__,
     allEnvKeys: Object.keys(process.env).filter(key => key.includes('OPENAI')),
-    keyExists: !!process.env.EXPO_PUBLIC_OPENAI_API_KEY,
-    typeOfValue: typeof process.env.EXPO_PUBLIC_OPENAI_API_KEY,
-    valueLength: process.env.EXPO_PUBLIC_OPENAI_API_KEY?.length || 0,
-    startsWithSk: process.env.EXPO_PUBLIC_OPENAI_API_KEY?.startsWith('sk-') || false,
+    keyExists: !!OPENAI_API_KEY,
+    typeOfValue: typeof OPENAI_API_KEY,
+    valueLength: OPENAI_API_KEY?.length || 0,
+    startsWithSk: OPENAI_API_KEY?.startsWith('sk-') || false,
     hasEnvFile: 'Unknown - cannot check file system from React Native',
   };
 
@@ -170,7 +172,7 @@ export const testEnvironmentVariables = (): {
     recommendations.push('1. Ensure you have a .env file in your project root');
     recommendations.push('2. Add this line to .env: EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-your-actual-key');
     recommendations.push('3. Stop Expo and restart with cache clear: npx expo start -c');
-  } else if (envTestResults.keyExists && isPlaceholderKey(process.env.EXPO_PUBLIC_OPENAI_API_KEY)) {
+  } else if (envTestResults.keyExists && isPlaceholderKey(OPENAI_API_KEY)) {
     recommendations.push('1. Replace the placeholder value with your real OpenAI API key');
     recommendations.push('2. Get your key from: https://platform.openai.com/api-keys');
     recommendations.push('3. Restart Expo after updating: npx expo start -c');

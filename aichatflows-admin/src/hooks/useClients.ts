@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { Client } from '../types';
 import { notifyClientAdded } from '../utils/notifications';
 import { useAuth } from './useAuth';
 
-const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+const debugMode = Constants.expoConfig?.extra?.debugMode;
 
 const debugLog = (message: string, data?: any) => {
   if (debugMode) {
