@@ -69,8 +69,18 @@ const validateEnvironmentVariables = () => {
   debugLog('Environment variables validated successfully');
 };
 
-// Validate environment variables before creating client
-validateEnvironmentVariables();
+// Validate environment variables before creating client - hardened for Build 5
+console.log("🟢 Supabase Build 5: Starting initialization...");
+try {
+  validateEnvironmentVariables();
+  console.log("✅ Supabase Build 5: Environment variables validated");
+} catch (validationError) {
+  console.error("🔴 Supabase Build 5: Environment validation failed");
+  console.error("🔴 Error name:", validationError.name || 'Unknown');
+  console.error("🔴 Error message:", validationError.message || 'No message');
+  console.error("🔴 Has stack trace:", !!validationError.stack);
+  // Don't throw - let the app try to continue with fallback
+}
 
 // Custom fetch wrapper for better error handling
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -131,22 +141,50 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promis
   }
 };
 
-// Create Supabase client with enhanced configuration
-export const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-  // Add custom headers for debugging
-  global: {
-    headers: {
-      'X-Client-Info': 'aichatflows-admin-expo',
+// Create Supabase client with enhanced configuration - hardened for Build 5
+let supabase: any;
+try {
+  console.log("🔧 Supabase Build 5: Creating client with URL:", supabaseUrl);
+  supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
     },
-    fetch: customFetch,
-  },
-});
+    // Add custom headers for debugging
+    global: {
+      headers: {
+        'X-Client-Info': 'aichatflows-admin-expo',
+      },
+      fetch: customFetch,
+    },
+  });
+  console.log("✅ Supabase Build 5: Client created successfully");
+} catch (clientError) {
+  console.error("🔴 Supabase Build 5: Failed to create client");
+  console.error("🔴 Error name:", clientError.name || 'Unknown');
+  console.error("🔴 Error message:", clientError.message || 'No message');
+  console.error("🔴 Has stack trace:", !!clientError.stack);
+  
+  // Create a fallback client that will throw meaningful errors
+  supabase = {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: new Error("Supabase client failed to initialize") }),
+      signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error("Supabase client failed to initialize") }),
+      signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error("Supabase client failed to initialize") }),
+      signOut: () => Promise.resolve({ error: new Error("Supabase client failed to initialize") }),
+    },
+    from: () => ({
+      select: () => Promise.resolve({ data: [], error: new Error("Supabase client failed to initialize") }),
+      insert: () => Promise.resolve({ data: [], error: new Error("Supabase client failed to initialize") }),
+      update: () => Promise.resolve({ data: [], error: new Error("Supabase client failed to initialize") }),
+      delete: () => Promise.resolve({ data: [], error: new Error("Supabase client failed to initialize") }),
+    }),
+  };
+}
+
+export { supabase };
 
 // Test connection function
 export const testSupabaseConnection = async () => {
@@ -186,12 +224,19 @@ export const testSupabaseConnection = async () => {
   }
 };
 
-// Initialize connection test in debug mode
+// Initialize connection test in debug mode - hardened for Build 5
 if (debugMode) {
   // Test connection after a short delay to avoid blocking the app startup
   setTimeout(() => {
-    testSupabaseConnection();
+    try {
+      testSupabaseConnection();
+    } catch (testError) {
+      console.error("🔴 Supabase Build 5: Connection test failed");
+      console.error("🔴 Error name:", testError.name || 'Unknown');
+      console.error("🔴 Error message:", testError.message || 'No message');
+    }
   }, 2000);
 }
 
-debugLog('Supabase client initialized successfully');
+console.log("✅ Supabase Build 5: Client initialized successfully");
+debugLog('Supabase Build 5: Client initialized successfully');

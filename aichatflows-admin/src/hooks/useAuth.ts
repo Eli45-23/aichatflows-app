@@ -13,45 +13,100 @@ const debugLog = (message: string, data?: any) => {
 };
 
 export function useAuth() {
+  console.log("🟢 useAuth Build 5: Hook initializing...");
+  
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  console.log("🔧 useAuth Build 5: State initialized - loading:", loading, "session:", !!session);
 
   useEffect(() => {
+    console.log('🚀 useAuth Build 5: useEffect triggered - initializing auth state...');
     debugLog('Initializing auth state...');
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        debugLog('Error getting initial session:', error);
-        console.error('Auth initialization error:', error);
-      } else {
-        debugLog('Initial session loaded:', !!session);
-      }
-      
-      setSession(session);
+    // Get initial session with enhanced error handling
+    try {
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        try {
+          if (error) {
+            debugLog('Error getting initial session:', error);
+            console.error('🔴 useAuth Build 5: Auth initialization error');
+            console.error('🔴 Error name:', error.name || 'Unknown');
+            console.error('🔴 Error message:', error.message || 'No message');
+            console.error('🔴 Has stack trace:', !!error.stack);
+          } else {
+            debugLog('Initial session loaded:', !!session);
+            console.log('✅ useAuth Build 5: Initial session loaded successfully');
+          }
+          
+          setSession(session);
+          setLoading(false);
+        } catch (sessionError) {
+          console.error('🔴 useAuth Build 5: Session processing error');
+          console.error('🔴 Error name:', sessionError.name || 'Unknown');
+          console.error('🔴 Error message:', sessionError.message || 'No message');
+          setSession(null);
+          setLoading(false);
+        }
+      }).catch(getSessionError => {
+        console.error('🔴 useAuth Build 5: getSession promise rejected');
+        console.error('🔴 Error name:', getSessionError.name || 'Unknown');
+        console.error('🔴 Error message:', getSessionError.message || 'No message');
+        setSession(null);
+        setLoading(false);
+      });
+    } catch (syncError) {
+      console.error('🔴 useAuth Build 5: getSession call failed');
+      console.error('🔴 Error name:', syncError.name || 'Unknown');
+      console.error('🔴 Error message:', syncError.message || 'No message');
+      setSession(null);
       setLoading(false);
-    });
+    }
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        debugLog(`Auth state changed: ${event}`, !!session);
-        setSession(session);
-        
-        // Initialize push notifications when user signs in
-        if (event === 'SIGNED_IN' && session?.user?.id) {
+    // Listen for auth changes with enhanced error handling
+    let subscription: any;
+    try {
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
           try {
-            await initializePushNotifications(session.user.id);
-          } catch (error) {
-            debugLog('Failed to initialize push notifications:', error);
+            debugLog(`Auth state changed: ${event}`, !!session);
+            console.log(`✅ useAuth Build 5: Auth state changed: ${event}`);
+            setSession(session);
+            
+            // Initialize push notifications when user signs in
+            if (event === 'SIGNED_IN' && session?.user?.id) {
+              try {
+                await initializePushNotifications(session.user.id);
+              } catch (error) {
+                debugLog('Failed to initialize push notifications:', error);
+                console.error('🔴 useAuth Build 5: Push notification init failed');
+              }
+            }
+          } catch (stateChangeError) {
+            console.error('🔴 useAuth Build 5: Auth state change handler error');
+            console.error('🔴 Error name:', stateChangeError.name || 'Unknown');
+            console.error('🔴 Error message:', stateChangeError.message || 'No message');
           }
         }
-      }
-    );
+      );
+      subscription = authSubscription;
+    } catch (subscriptionError) {
+      console.error('🔴 useAuth Build 5: Auth subscription failed');
+      console.error('🔴 Error name:', subscriptionError.name || 'Unknown');
+      console.error('🔴 Error message:', subscriptionError.message || 'No message');
+    }
 
     return () => {
-      debugLog('Cleaning up auth listener');
-      subscription.unsubscribe();
+      try {
+        debugLog('Cleaning up auth listener');
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+      } catch (cleanupError) {
+        console.error('🔴 useAuth Build 5: Cleanup error');
+        console.error('🔴 Error name:', cleanupError.name || 'Unknown');
+        console.error('🔴 Error message:', cleanupError.message || 'No message');
+      }
     };
   }, []);
 

@@ -9,12 +9,9 @@
     "scheme": "aichatflows",
     "newArchEnabled": true,
     "primaryColor": "#00D4AA",
-    "platforms": ["ios"],
-    "extra": {
-      "eas": {
-        "projectId": "aichatflows-admin-project"
-      }
-    },
+    "platforms": [
+      "ios"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -24,7 +21,7 @@
       "supportsTablet": false,
       "requireFullScreen": true,
       "bundleIdentifier": "com.aichatflows.admin",
-      "buildNumber": "1",
+      "buildNumber": "5",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -67,6 +64,13 @@
           "cameraPermission": "Allow AIChatFlows Admin to access camera to take business photos."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5330ae93-056c-46ee-9fc3-1ce2764734ee"
+      }
+    },
+    "owner": "eli4523"
   }
 }

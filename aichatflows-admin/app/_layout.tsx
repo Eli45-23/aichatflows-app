@@ -82,33 +82,54 @@ class NavigationErrorBoundary extends React.Component<
 }
 
 export default function RootLayout() {
-  console.log("🟢 RootLayout: Component rendering...");
-  console.log("🔧 RootLayout: React and imports loaded successfully");
+  console.log("🟢 RootLayout Build 5: Component rendering...");
+  console.log("🔧 RootLayout Build 5: React and imports loaded successfully");
   
   // Early return with simple text for debugging
   if (process.env.NODE_ENV === 'development') {
     console.log("🔧 Debug mode: Rendering simple component");
   }
   
-  console.log("🔧 RootLayout: About to initialize state...");
+  console.log("🔧 RootLayout Build 5: About to initialize state...");
   
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
   
-  console.log("🔧 RootLayout: State initialized, navigation ready:", isNavigationReady);
+  console.log("🔧 RootLayout Build 5: State initialized, navigation ready:", isNavigationReady);
 
   useEffect(() => {
-    console.log('🚀 RootLayout: Initializing app...');
+    console.log('🚀 RootLayout Build 5: Initializing app...');
     
-    // Initialize notifications
-    registerForPushNotificationsAsync();
+    // Initialize notifications with error handling
+    try {
+      registerForPushNotificationsAsync();
+    } catch (notificationError) {
+      console.error('🔴 RootLayout Build 5: Notification initialization failed');
+      console.error('🔴 Error name:', notificationError.name || 'Unknown');
+      console.error('🔴 Error message:', notificationError.message || 'No message');
+      // Don't fail the app for notification errors
+    }
     
     // Add a small delay to ensure navigation context is properly set up
     const timer = setTimeout(() => {
-      console.log('✅ RootLayout: Navigation context ready');
-      setIsNavigationReady(true);
+      try {
+        console.log('✅ RootLayout Build 5: Navigation context ready');
+        setIsNavigationReady(true);
+      } catch (navError) {
+        console.error('🔴 RootLayout Build 5: Navigation setup failed');
+        console.error('🔴 Error name:', navError.name || 'Unknown');
+        console.error('🔴 Error message:', navError.message || 'No message');
+        setInitializationError('Navigation setup failed');
+      }
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      try {
+        clearTimeout(timer);
+      } catch (cleanupError) {
+        console.error('🔴 RootLayout Build 5: Cleanup error');
+      }
+    };
   }, []);
 
   async function registerForPushNotificationsAsync() {
@@ -131,6 +152,47 @@ export default function RootLayout() {
     } catch (error) {
       console.error('❌ RootLayout: Error setting up notifications:', error);
     }
+  }
+
+  // Show initialization error screen if setup failed
+  if (initializationError) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <View style={{ 
+            flex: 1, 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            backgroundColor: '#fff',
+            padding: 20
+          }}>
+            <Text style={{ 
+              fontSize: 18, 
+              color: '#DC2626',
+              textAlign: 'center',
+              marginBottom: 10
+            }}>
+              Initialization Error
+            </Text>
+            <Text style={{ 
+              fontSize: 14, 
+              color: '#6B7280',
+              textAlign: 'center',
+              marginBottom: 20
+            }}>
+              {initializationError}
+            </Text>
+            <Text style={{ 
+              fontSize: 12, 
+              color: '#9CA3AF',
+              textAlign: 'center'
+            }}>
+              Please restart the app
+            </Text>
+          </View>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   // Show loading screen while navigation context is being set up
